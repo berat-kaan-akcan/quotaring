@@ -49,7 +49,7 @@ tests there first) and produces a bundle that runs on Ubuntu 22.04+, Debian 12+,
 on distros at least as new as the build machine).
 - Arch/CachyOS: `./packaging/arch/build.sh -s` then `sudo pacman -U packaging/out/ai-usage-widget-*.pkg.tar.zst`
   (uses system `python` + `pyside6`).
-- AppImage: built only when `appimagetool` is on `PATH`.
+- AppImage: `./packaging/linux/build_appimage_docker.sh` (downloads and runs appimagetool inside a container).
 
 Frozen builds bundle the build machine's libraries; build on the **oldest** distro you
 target (e.g. Ubuntu 22.04) so the result runs on newer ones.
@@ -81,6 +81,9 @@ Command line: `--hidden` (start in tray), `--xwayland` (see Wayland below), `--d
 Saved as JSON in:
 - Linux: `$XDG_CONFIG_HOME/ai-usage-widget/settings.json` (default `~/.config/...`)
 - Windows: `%APPDATA%\AIUsageWidget\settings.json`
+
+Language: follows the system (Turkish or English); override in Settings → Language
+(takes effect after a restart).
 
 Options: local refresh interval (default 60 s), quota refresh interval (default 300 s), query
 timeout (20 s), theme (system / light / dark), background opacity, keep above other windows,
