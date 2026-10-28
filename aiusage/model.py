@@ -95,6 +95,7 @@ class LocalUsage:
     detail: str = ""  # message for non-OK states
     files: int = 0
     updated_at: float | None = None
+    daily: list = field(default_factory=list)  # [[YYYY-MM-DD, total tokens], ...] oldest first
 
     def period(self, key: str) -> PeriodUsage | None:
         return next((p for p in self.periods if p.key == key), None)
@@ -108,6 +109,7 @@ class LocalUsage:
             "detail": self.detail,
             "files": self.files,
             "updated_at": self.updated_at,
+            "daily": self.daily,
         }
 
     @classmethod
@@ -120,6 +122,7 @@ class LocalUsage:
             detail=d.get("detail", ""),
             files=int(d.get("files") or 0),
             updated_at=d.get("updated_at"),
+            daily=[[str(x[0]), int(x[1])] for x in d.get("daily") or [] if isinstance(x, list) and len(x) == 2],
         )
 
 

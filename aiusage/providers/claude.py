@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 import time
 
 from .. import paths
-from ..aggregate import aggregate, retention_cutoff
+from ..aggregate import aggregate, daily_totals, retention_cutoff
 from ..model import LocalUsage, Quota, QuotaWindow, State, Tokens, UsageEvent
 from ..scan import FileStates, as_int, list_files, parse_ts, read_new_lines
 from .base import JsonLineProcess, Provider, QuotaError, classify_error_text, find_executable, with_retries
@@ -122,6 +123,25 @@ def windows_from_usage(payload: dict) -> tuple[list[QuotaWindow], dict]:
     return windows, extra
 
 
+def native_install_binary() -> str | None:
+    """Newest binary from Claude Code's native installer (~/.local/share/claude/versions/<ver>).
+
+    Used when `claude` is not on PATH or its launcher symlink is broken.
+    """
+    from pathlib import Path
+
+    versions = Path.home() / ".local" / "share" / "claude" / "versions"
+    try:
+        cands = [p for p in versions.iterdir() if p.is_file() and os.access(p, os.X_OK)]
+    except OSError:
+        return None
+
+    def key(p):
+        return [int(x) if x.isdigit() else 0 for x in p.name.split(".")]
+
+    return str(max(cands, key=key)) if cands else None
+
+
 class ClaudeProvider(Provider):
     id = "claude"
     name = "Claude Code"
@@ -146,10 +166,12 @@ class ClaudeProvider(Provider):
         self.save_scan_cache({"version": SCAN_VERSION, **self._states.to_dict()})
         events = dedup_events(self._states)
         return LocalUsage(State.OK, aggregate(events, now), source=str(roots[0]),
-                          exact=True, files=len(self._states.files))
+                          exact=True, files=len(self._states.files), daily=daily_totals(events, now))
 
     def _collect_quota(self, now: float) -> Quota:
         exe = find_executable(self.settings.claude_command)
+        if not exe and self.settings.claude_command == "claude":
+            exe = native_install_binary()
         if not exe:
             return Quota(State.NOT_INSTALLED, detail="`claude` CLI not found")
         payload = with_retries(lambda: self._query(exe), attempts=3)

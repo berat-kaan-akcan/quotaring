@@ -8,15 +8,15 @@ import os
 import sys
 import time
 
-from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
+from PySide6.QtCore import QLockFile, QObject, QRunnable, Qt, QThreadPool, QTimer, Signal
+from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPainter, QPixmap, QShortcut
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from . import __version__, autostart, paths, settings as settings_mod
 from .engine import Engine
 from .model import State
 from .providers import ALL
-from .ui import theme
+from .ui import format as fmt, theme
 from .ui.settings_dialog import SettingsDialog
 from .ui.window import MainWindow
 
@@ -89,21 +89,23 @@ class Controller(QObject):
         self.tray = None
         if QSystemTrayIcon.isSystemTrayAvailable():
             self.tray = QSystemTrayIcon(self.icon)
-            menu = QMenu()
-            for text, fn in (("Show / hide", self.toggle_window), ("Refresh now", lambda: self.refresh(force=True)),
-                             ("Settings…", self.open_settings)):
-                act = QAction(text, menu)
-                act.triggered.connect(fn)
-                menu.addAction(act)
-            menu.addSeparator()
-            quit_act = QAction("Quit", menu)
-            quit_act.triggered.connect(self.quit)
-            menu.addAction(quit_act)
-            self.tray.setContextMenu(menu)
+            self._menu = self._build_menu()
+            self.tray.setContextMenu(self._menu)
             self.tray.setToolTip("AI Usage")
             self.tray.activated.connect(self._tray_activated)
             self.tray.show()
-            self._menu = menu
+        # Same menu on right-click in the window: the only menu on GNOME without a tray.
+        self._window_menu = self._build_menu()
+        self.window.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.window.customContextMenuRequested.connect(
+            lambda pos: self._window_menu.exec(self.window.mapToGlobal(pos)))
+        for keys, fn in ((("F5", "Ctrl+R"), lambda: self.refresh(force=True)),
+                         (("Esc",), self.hide_window),
+                         (("Ctrl+,",), self.open_settings),
+                         (("Ctrl+E",), self.window.btn_expand.click),
+                         (("Ctrl+Q",), self.quit)):
+            for k in keys:
+                QShortcut(QKeySequence(k), self.window, activated=fn)
 
         hints = QApplication.styleHints()
         if hasattr(hints, "colorSchemeChanged"):
@@ -124,6 +126,19 @@ class Controller(QObject):
         self.tick.start(30_000)
         self.apply_intervals()
         QTimer.singleShot(0, lambda: self.refresh(force=True))
+
+    def _build_menu(self) -> QMenu:
+        menu = QMenu()
+        for text, fn in (("Show / hide", self.toggle_window), ("Refresh now\tF5", lambda: self.refresh(force=True)),
+                         ("Settings…\tCtrl+,", self.open_settings)):
+            act = QAction(text, menu)
+            act.triggered.connect(fn)
+            menu.addAction(act)
+        menu.addSeparator()
+        quit_act = QAction("Quit\tCtrl+Q", menu)
+        quit_act.triggered.connect(self.quit)
+        menu.addAction(quit_act)
+        return menu
 
     # -- refresh --------------------------------------------------------
     def apply_intervals(self):
@@ -152,6 +167,8 @@ class Controller(QObject):
 
     def _update_status(self):
         self.window.status.setText("refreshing…" if self.engine.busy else "")
+        if self.tray is not None:
+            self.tray.setToolTip("AI Usage\n" + fmt.summary(self.engine.snapshots.values(), time.time()))
 
     def repaint_cards(self):
         for pid, snap in self.engine.snapshots.items():
@@ -247,6 +264,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--hidden", action="store_true", help="start hidden in the tray")
     parser.add_argument("--debug", action="store_true", help="verbose logging")
+    parser.add_argument("--allow-multiple", action="store_true", help="skip the single-instance check")
     parser.add_argument("--xwayland", action="store_true",
                         help="on Wayland, run through XWayland so keep-above and saved position work")
     parser.add_argument("--print", dest="print_json", action="store_true",
@@ -260,12 +278,23 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.xwayland and os.environ.get("WAYLAND_DISPLAY"):
         os.environ["QT_QPA_PLATFORM"] = "xcb"
+    # One widget per user session; a stale lock from a crashed run is taken over after 5 s.
+    lock_dir = paths.cache_dir()
+    lock_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    lock = QLockFile(str(lock_dir / "instance.lock"))
+    lock.setStaleLockTime(5000)
+    if not args.allow_multiple and not lock.tryLock(100):
+        print("AI Usage Widget is already running (use the tray icon, or pass --allow-multiple).",
+              file=sys.stderr)
+        return 1
     app = QApplication(sys.argv[:1])
     app.setApplicationName("AI Usage Widget")
     app.setDesktopFileName("ai-usage-widget")
     app.setQuitOnLastWindowClosed(False)
     _controller = Controller(app, start_hidden=args.hidden)  # noqa: F841 - keep alive
-    return app.exec()
+    code = app.exec()
+    lock.unlock()
+    return code
 
 
 def print_once() -> int:

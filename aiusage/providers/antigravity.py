@@ -18,7 +18,7 @@ import sqlite3
 from pathlib import Path
 
 from .. import paths, protowire as pw
-from ..aggregate import aggregate
+from ..aggregate import aggregate, daily_totals
 from ..model import LocalUsage, Quota, State, Tokens, UsageEvent
 from .base import Provider
 
@@ -166,7 +166,7 @@ class AntigravityProvider(Provider):
         ]
         detail = f"{failed} database(s) could not be read" if failed else ""
         return LocalUsage(State.OK, aggregate(events, now), source=str(conv_dirs[0].parent.parent),
-                          exact=True, files=len(live), detail=detail)
+                          exact=True, files=len(live), detail=detail, daily=daily_totals(events, now))
 
     def _collect_quota(self, now: float) -> Quota:
         return Quota(State.UNAVAILABLE, source="none",

@@ -22,7 +22,7 @@ def merge_local(prev: LocalUsage | None, new: LocalUsage) -> LocalUsage:
         return new
     if prev.state in (State.OK, State.STALE) and prev.periods and new.state == State.UNAVAILABLE:
         return LocalUsage(State.STALE, prev.periods, prev.source, prev.exact,
-                          detail=new.detail, files=prev.files, updated_at=prev.updated_at)
+                          detail=new.detail, files=prev.files, updated_at=prev.updated_at, daily=prev.daily)
     return new
 
 

@@ -24,7 +24,8 @@ def app():
 def snap(local_state, quota_state, windows=True):
     periods = aggregate([UsageEvent(NOW - 60, "model-a", Tokens(input=1234, output=56))], NOW)
     loc = LocalUsage(local_state, periods if local_state in (State.OK, State.STALE) else [],
-                     detail="why", updated_at=NOW - 30, files=3)
+                     detail="why", updated_at=NOW - 30, files=3,
+                     daily=[["2026-10-%02d" % d, d * 1000] for d in range(15, 29)])
     q = Quota(quota_state,
               [QuotaWindow("five_hour", "5-hour session", 42.0, NOW + 3600, 300),
                QuotaWindow("seven_day", "Weekly", 95.0, NOW - 5, 10080)] if windows else [],
@@ -68,3 +69,13 @@ def test_window_flags_and_expand_toggle(app, settings):
     before = settings.expanded
     w.btn_expand.click()
     assert settings.expanded != before
+
+
+def test_daily_chart_visible_only_when_expanded(app, settings):
+    settings.expanded = True
+    w = MainWindow([("claude", "Claude Code")], theme.DARK, settings)
+    card = w.cards["claude"]
+    card.update_snapshot(snap(State.OK, State.OK))
+    assert not card.chart.isHidden() and len(card.chart.days) == 14
+    w.btn_expand.click()
+    assert card.chart.isHidden()

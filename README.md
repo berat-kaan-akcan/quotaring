@@ -30,12 +30,12 @@ Details and evidence: [RESEARCH.md](RESEARCH.md).
 ## Install
 
 ### From source (any OS)
-Requires Python 3.11+.
+Requires Python 3.10+.
 
 ```sh
 git clone <this repo> ai-usage-widget && cd ai-usage-widget
 python3 -m venv .venv
-.venv/bin/pip install PySide6-Essentials          # Windows: .venv\Scripts\pip ...
+.venv/bin/pip install -r requirements.txt         # Windows: .venv\Scripts\pip ...
 .venv/bin/python -m aiusage                       # Windows: .venv\Scripts\pythonw -m aiusage
 ```
 
@@ -133,7 +133,7 @@ Toggle **Start at login** in Settings.
 ## Development
 
 ```sh
-python3 -m venv .venv && .venv/bin/pip install PySide6-Essentials pytest pyinstaller
+python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/python -m pytest -q          # synthetic fixtures only; never reads your real data
 ```
 

@@ -1,0 +1,4 @@
+# Runtime dependency. PySide6 6.12 mis-counts references to None on Python < 3.12
+# (None is immortal from 3.12 on), which aborts the interpreter at exit on e.g. Ubuntu 22.04.
+PySide6-Essentials>=6.6; python_version >= "3.12"
+PySide6-Essentials>=6.6,<6.12; python_version < "3.12"

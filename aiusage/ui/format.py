@@ -64,3 +64,22 @@ def updated(ts: float | None, now: float) -> str:
     if ts is None:
         return "not updated yet"
     return f"updated {datetime.fromtimestamp(ts).strftime('%H:%M')} ({age(ts, now)})"
+
+
+def summary(snapshots, now: float) -> str:
+    """One line per provider for the tray tooltip. Quota only when provider-reported."""
+    lines = []
+    for s in snapshots:
+        q, loc = s.quota, s.local
+        parts = []
+        if q.state in (State.OK, State.STALE) and q.windows:
+            parts.append(" · ".join(f"{w.label.split(' ')[0]} {w.used_percent:.0f}%" for w in q.windows[:2]))
+            if q.state == State.STALE:
+                parts[-1] += " (stale)"
+        per = loc.period("today") if loc.state in (State.OK, State.STALE) else None
+        if per is not None:
+            parts.append(f"today {tokens(per.total.total)} tok")
+        if not parts:
+            parts.append(STATE_TEXT[loc.state if loc.state != State.OK else q.state])
+        lines.append(f"{s.name}: " + ", ".join(parts))
+    return "\n".join(lines)

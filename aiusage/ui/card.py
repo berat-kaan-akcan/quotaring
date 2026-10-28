@@ -7,7 +7,7 @@ import time
 from PySide6.QtCore import QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QHeaderView, QLabel, QSizePolicy,
-                               QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
+                               QTableWidget, QTableWidgetItem, QToolTip, QVBoxLayout, QWidget)
 
 from ..model import ProviderSnapshot, State
 from . import format as fmt
@@ -50,6 +50,57 @@ class Bar(QWidget):
             p.drawRoundedRect(QRectF(r.x(), r.y(), max(w, 6), r.height()), 3, 3)
 
 
+class DailyChart(QWidget):
+    """Bars of locally recorded tokens per day (oldest left). Hover shows the day's total."""
+
+    def __init__(self, palette: Palette, color: str):
+        super().__init__()
+        self.palette_ = palette
+        self.color = color
+        self.days: list = []
+        self.setFixedHeight(54)
+        self.setMouseTracking(True)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+    def set_days(self, days: list):
+        self.days = days or []
+        peak = max((d[1] for d in self.days), default=0)
+        self.setToolTip(f"Daily recorded tokens (local), last {len(self.days)} days · peak {fmt.tokens(peak)}")
+        self.update()
+
+    def _slot(self, x: float) -> int | None:
+        if not self.days:
+            return None
+        i = int(x / (self.width() / len(self.days)))
+        return i if 0 <= i < len(self.days) else None
+
+    def mouseMoveEvent(self, e):
+        i = self._slot(e.position().x())
+        if i is not None:
+            day, total = self.days[i]
+            QToolTip.showText(e.globalPosition().toPoint(), f"{day}: {fmt.tokens(total)} tokens ({total:,})", self)
+
+    def paintEvent(self, _e):
+        if not self.days:
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        n = len(self.days)
+        peak = max(d[1] for d in self.days) or 1
+        slot = self.width() / n
+        bw = max(2.0, slot * 0.68)
+        h = self.height() - 2
+        p.setPen(Qt.NoPen)
+        for i, (_day, total) in enumerate(self.days):
+            x = i * slot + (slot - bw) / 2
+            bh = max(2.0, h * total / peak) if total else 2.0
+            c = QColor(self.color if total else self.palette_.track)
+            if i < n - 1 and total:
+                c.setAlphaF(0.7)
+            p.setBrush(c)
+            p.drawRoundedRect(QRectF(x, h - bh + 1, bw, bh), 2, 2)
+
+
 class Pill(QLabel):
     def __init__(self, palette: Palette):
         super().__init__()
@@ -89,6 +140,7 @@ class ProviderCard(QFrame):
         self.expanded = False
         self.period = "today"
         self.snapshot: ProviderSnapshot | None = None
+        self._quota_widgets: list[QWidget] = []
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(12, 10, 12, 10)
@@ -143,6 +195,10 @@ class ProviderCard(QFrame):
         lay.addWidget(self.local_row)
         self.local_msg = _small()
         lay.addWidget(self.local_msg)
+        self.chart = DailyChart(palette, PROVIDER_COLORS.get(provider_id, palette.accent))
+        self.chart_label = _small()
+        lay.addWidget(self.chart)
+        lay.addWidget(self.chart_label)
 
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(["Model", "Input", "Output", "Cache r/w", "Total"])
@@ -172,12 +228,12 @@ class ProviderCard(QFrame):
             self.update_snapshot(self.snapshot)
 
     def _clear_quota(self):
-        while self.quota_grid.count():
-            w = self.quota_grid.takeAt(0).widget()
-            if w:
-                w.hide()
-                w.setParent(None)
-                w.deleteLater()
+        # Rows are tracked in a list rather than drained with takeAt(), keeping ownership simple.
+        for w in self._quota_widgets:
+            self.quota_grid.removeWidget(w)
+            w.hide()
+            w.deleteLater()
+        self._quota_widgets = []
 
     def update_snapshot(self, snap: ProviderSnapshot):
         self.snapshot = snap
@@ -192,7 +248,8 @@ class ProviderCard(QFrame):
             if collapsed:
                 break
         for w in (self.quota_title, self.quota_box, self.quota_msg, self.breakdown,
-                  self.local_title, self.local_row, self.local_msg, self.table):
+                  self.local_title, self.local_row, self.local_msg, self.table,
+                  self.chart, self.chart_label):
             w.setVisible(not collapsed)
         if collapsed:
             self.pill.set_state(st)
@@ -230,6 +287,7 @@ class ProviderCard(QFrame):
                 self.quota_grid.addWidget(bar, row * 2, 1)
                 self.quota_grid.addWidget(pct, row * 2, 2)
                 self.quota_grid.addWidget(reset, row * 2 + 1, 0, 1, 3)
+                self._quota_widgets += [label, bar, pct, reset]
             self.quota_grid.setColumnStretch(1, 1)
         msg = []
         if q.state == State.STALE:
@@ -265,6 +323,14 @@ class ProviderCard(QFrame):
         self.local_msg.setText("  ".join(lm))
         self.local_msg.setVisible(bool(lm))
 
+        show_chart = has_local and self.expanded and bool(loc.daily)
+        self.chart.setVisible(show_chart)
+        self.chart_label.setVisible(show_chart)
+        if show_chart:
+            self.chart.palette_ = self.palette_
+            self.chart.set_days(loc.daily)
+            self.chart_label.setText(f"Daily recorded tokens, last {len(loc.daily)} days "
+                                     f"({loc.daily[0][0][5:]} → today) · hover for values")
         self._fill_table(loc if has_local and self.expanded else None)
         foot = [fmt.updated(loc.updated_at, now)]
         if has_local and self.expanded:

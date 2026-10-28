@@ -97,3 +97,36 @@ def test_autostart_desktop_file(isolated_dirs):
 def test_today_period_start_is_local_midnight():
     start = datetime.fromtimestamp(period_starts(NOW)["today"])
     assert (start.hour, start.minute, start.second) == (0, 0, 0)
+
+
+def test_daily_totals():
+    from aiusage.aggregate import daily_totals
+    days = daily_totals([ev(NOW - 60, n=5), ev(NOW - 86400, n=7), ev(None, n=100),
+                         ev(NOW - 40 * 86400, n=9), ev(NOW + 7200, n=11)], NOW, days=14)
+    assert len(days) == 14
+    assert days[-1][0] == datetime.fromtimestamp(NOW).date().isoformat()
+    assert sum(d[1] for d in days) == 12  # undated, too old and future events excluded
+
+
+def test_local_usage_daily_roundtrip_and_bad_rows():
+    loc = LocalUsage(State.OK, daily=[["2026-10-27", 5], ["2026-10-28", 9]])
+    assert LocalUsage.from_dict(json.loads(json.dumps(loc.to_dict()))).daily == loc.daily
+    raw = loc.to_dict()
+    raw["daily"] = [["2026-10-28", 3], "junk", [1]]
+    assert LocalUsage.from_dict(raw).daily == [["2026-10-28", 3]]
+
+
+def test_tray_summary_only_reports_provider_quota():
+    from aiusage.aggregate import aggregate
+    ok = ProviderSnapshot("claude", "Claude Code",
+                          LocalUsage(State.OK, aggregate([ev(NOW - 10, n=2500)], NOW)),
+                          Quota(State.OK, [QuotaWindow("five_hour", "5-hour session", 24.0),
+                                           QuotaWindow("seven_day", "Weekly", 84.0)]))
+    ag = ProviderSnapshot("antigravity", "Antigravity",
+                          LocalUsage(State.OK, aggregate([], NOW)), Quota(State.UNAVAILABLE))
+    cx = ProviderSnapshot("codex", "Codex", LocalUsage(State.NOT_INSTALLED), Quota(State.NOT_INSTALLED))
+    text = fmt.summary([ok, ag, cx], NOW)
+    lines = text.splitlines()
+    assert lines[0].startswith("Claude Code: 5-hour 24% · Weekly 84%")
+    assert "%" not in lines[1]  # no quota invented for Antigravity
+    assert lines[2] == "Codex: Not installed"

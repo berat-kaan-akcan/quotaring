@@ -9,7 +9,7 @@ from __future__ import annotations
 import time
 
 from .. import __version__, paths
-from ..aggregate import aggregate, retention_cutoff
+from ..aggregate import aggregate, daily_totals, retention_cutoff
 from ..model import LocalUsage, Quota, QuotaWindow, State, Tokens, UsageEvent
 from ..scan import FileStates, as_int, list_files, parse_ts, read_new_lines
 from .base import JsonLineProcess, Provider, QuotaError, classify_error_text, find_executable, with_retries
@@ -168,8 +168,9 @@ class CodexProvider(Provider):
             self._states = FileStates(data if data.get("version") == SCAN_VERSION else None)
         scan(self._states, roots, now)
         self.save_scan_cache({"version": SCAN_VERSION, **self._states.to_dict()})
-        return LocalUsage(State.OK, aggregate(events_of(self._states), now), source=str(roots[0]),
-                          exact=True, files=len(self._states.files))
+        events = events_of(self._states)
+        return LocalUsage(State.OK, aggregate(events, now), source=str(roots[0]),
+                          exact=True, files=len(self._states.files), daily=daily_totals(events, now))
 
     def _collect_quota(self, now: float) -> Quota:
         exe = find_executable(self.settings.codex_command)

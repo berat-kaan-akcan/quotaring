@@ -163,3 +163,16 @@ def test_codex_quota_timeout(settings, tmp_path, monkeypatch):
     settings.timeout_seconds = 1
     q = codex(settings, tmp_path, "hang")
     assert q.state == State.UNAVAILABLE and "timed out" in q.detail
+
+
+def test_claude_native_install_fallback(settings, tmp_path, isolated_dirs):
+    import os
+    from aiusage.providers import claude as cmod
+    versions = isolated_dirs / "home" / ".local" / "share" / "claude" / "versions"
+    versions.mkdir(parents=True)
+    for v in ("2.1.9", "2.1.312", "2.1.40"):
+        f = versions / v
+        f.write_text("#!/bin/sh\n")
+        os.chmod(f, 0o755)
+    (versions / "notes.txt").write_text("x")
+    assert cmod.native_install_binary().endswith("2.1.312")

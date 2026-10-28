@@ -45,3 +45,17 @@ def aggregate(events: Iterable[UsageEvent], now: float) -> list[PeriodUsage]:
             p.by_model.setdefault(ev.model, Tokens()).add(ev.tokens)
             p.events += 1
     return [out[k] for k, _ in PERIODS]
+
+
+def daily_totals(events: Iterable[UsageEvent], now: float, days: int = 14) -> list[list]:
+    """[[local date 'YYYY-MM-DD', total tokens], ...] for the last `days` days, oldest first."""
+    today = datetime.fromtimestamp(now).date()
+    keys = [(today - timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
+    totals = dict.fromkeys(keys, 0)
+    for ev in events:
+        if ev.ts is None or ev.ts > now + 300:
+            continue
+        day = datetime.fromtimestamp(ev.ts).date().isoformat()
+        if day in totals:
+            totals[day] += ev.tokens.total
+    return [[k, totals[k]] for k in keys]

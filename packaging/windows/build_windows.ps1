@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..\..")
 if (-not (Test-Path .venv)) { python -m venv .venv }
 .\.venv\Scripts\python -m pip install --upgrade pip
-.\.venv\Scripts\python -m pip install "PySide6-Essentials>=6.6" pytest pyinstaller
+.\.venv\Scripts\python -m pip install -r requirements-dev.txt
 .\.venv\Scripts\python -m pytest -q
 .\.venv\Scripts\python -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging\aiusage.spec
 New-Item -ItemType Directory -Force packaging\out | Out-Null
