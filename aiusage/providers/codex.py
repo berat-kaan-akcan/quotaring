@@ -79,10 +79,14 @@ def parse_codex_lines(lines, state: dict) -> dict[str, list]:
     return out
 
 
-def scan(states: FileStates, roots, now: float) -> None:
+def scan(states: FileStates, roots, now: float) -> bool:
+    """Update `states` in place; return True when anything changed (cache needs saving)."""
     cutoff = retention_cutoff(now)
     found = list_files(roots, ".jsonl", cutoff)
+    before = len(states.files)
+    changed = False
     for path, entry in states.plan(found):
+        changed = True
         try:
             lines, offset = read_new_lines(
                 path, entry["offset"],
@@ -95,6 +99,7 @@ def scan(states: FileStates, roots, now: float) -> None:
             del entry["events"][key]
         size, mtime = found[path]
         FileStates.done(entry, size, mtime, offset)
+    return changed or len(states.files) != before
 
 
 def events_of(states: FileStates) -> list[UsageEvent]:
@@ -166,8 +171,8 @@ class CodexProvider(Provider):
         if self._states is None:
             data = self.load_scan_cache()
             self._states = FileStates(data if data.get("version") == SCAN_VERSION else None)
-        scan(self._states, roots, now)
-        self.save_scan_cache({"version": SCAN_VERSION, **self._states.to_dict()})
+        if scan(self._states, roots, now):
+            self.save_scan_cache({"version": SCAN_VERSION, **self._states.to_dict()})
         events = events_of(self._states)
         return LocalUsage(State.OK, aggregate(events, now), source=str(roots[0]),
                           exact=True, files=len(self._states.files), daily=daily_totals(events, now))

@@ -154,6 +154,7 @@ TR = {
     "Rate limited by provider (HTTP 429)": "Sağlayıcı hız sınırı uyguladı (HTTP 429)",
     "This Claude Code version has no usage query": "Bu Claude Code sürümünde kullanım sorgusu yok",
     "Unexpected permission request from CLI": "CLI'dan beklenmeyen izin isteği",
+    "Shutting down": "Kapatılıyor",
     "claude CLI get_usage (experimental, undocumented)": "claude CLI get_usage (deneysel, belgelenmemiş)",
     "codex app-server account/rateLimits/read": "codex app-server account/rateLimits/read",
     "Chats": "Sohbetler",

@@ -142,3 +142,17 @@ def test_periods_and_models(settings, tmp_path):
     assert u.period("7d").events == 3
     assert u.period("30d").events == 4
     assert set(u.period("30d").by_model) == {"claude-a", "claude-b"}
+
+
+def test_scan_cache_written_only_when_changed(settings, tmp_path, monkeypatch):
+    f = tmp_path / "projects" / "a.jsonl"
+    write_jsonl(f, [assistant("m1", NOW - 50)])
+    p = provider(settings, tmp_path)
+    saves = []
+    monkeypatch.setattr(p, "save_scan_cache", lambda data: saves.append(1))
+    p.collect_local(NOW)
+    p.collect_local(NOW)
+    assert len(saves) == 1  # second refresh: nothing changed, no 1 MB rewrite
+    f.unlink()
+    p.collect_local(NOW)
+    assert len(saves) == 2  # a vanished file is a change

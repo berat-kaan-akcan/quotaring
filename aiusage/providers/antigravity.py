@@ -138,16 +138,22 @@ class AntigravityProvider(Provider):
         if self._cache is None:
             data = self.load_scan_cache()
             self._cache = data.get("dbs", {}) if data.get("version") == SCAN_VERSION else {}
-        seen: dict[str, str] = {}  # conversation id -> path (newest copy wins)
+        seen: dict[str, tuple[float, str]] = {}  # conversation id -> (mtime, path); newest copy wins
         for d in conv_dirs:
             for db in d.glob("*.db"):
+                try:
+                    mtime = os.path.getmtime(db)
+                except OSError:
+                    continue  # deleted between listing and stat
                 prev = seen.get(db.stem)
-                if prev is None or os.path.getmtime(db) > os.path.getmtime(prev):
-                    seen[db.stem] = str(db)
-        live = set(seen.values())
+                if prev is None or mtime > prev[0]:
+                    seen[db.stem] = (mtime, str(db))
+        live = {p for _m, p in seen.values()}
+        changed = False
         for p in list(self._cache):
             if p not in live:
                 del self._cache[p]
+                changed = True
         failed = 0
         for p in live:
             sig = _signature(Path(p))
@@ -156,10 +162,12 @@ class AntigravityProvider(Provider):
                 continue
             try:
                 self._cache[p] = {"sig": sig, "events": read_conversation(Path(p))}
+                changed = True
             except (sqlite3.Error, OSError) as e:
                 failed += 1
                 log.warning("antigravity: skipped unreadable database %s (%s)", p, type(e).__name__)
-        self.save_scan_cache({"version": SCAN_VERSION, "dbs": self._cache})
+        if changed:
+            self.save_scan_cache({"version": SCAN_VERSION, "dbs": self._cache})
         events = [
             UsageEvent(r[0], r[1], Tokens(input=r[2], output=r[3], cache_read=r[4], cache_write=r[5], reasoning=r[6]))
             for e in self._cache.values() for r in e["events"]

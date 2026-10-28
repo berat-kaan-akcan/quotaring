@@ -155,3 +155,19 @@ def test_changed_db_is_rescanned(settings, tmp_path):
     con.close()
     os.utime(db, (NOW + 5, NOW + 5))
     assert p.collect_local(NOW).period("all").events == 2
+
+
+def test_db_deleted_during_scan_is_skipped(settings, tmp_path, monkeypatch):
+    root = tmp_path / "antigravity-ide"
+    make_db(root / "conversations" / "keep.db", [generation(1, 1)], steps={0: int(NOW) - 5})
+    make_db(root / "conversations" / "gone.db", [generation(2, 2)], steps={0: int(NOW) - 5})
+    real = os.path.getmtime
+
+    def flaky(path):
+        if str(path).endswith("gone.db"):
+            raise FileNotFoundError(path)
+        return real(path)
+
+    monkeypatch.setattr("aiusage.providers.antigravity.os.path.getmtime", flaky)
+    u = AntigravityProvider(settings, roots=[root]).collect_local(NOW)
+    assert u.state == State.OK and u.period("all").events == 1

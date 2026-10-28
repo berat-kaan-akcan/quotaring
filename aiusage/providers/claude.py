@@ -55,10 +55,14 @@ def merge_record(old: list | None, new: list) -> list:
     return [old[0], old[1]] + [max(a, b) for a, b in zip(old[2:], new[2:])]
 
 
-def scan(states: FileStates, roots, now: float) -> None:
+def scan(states: FileStates, roots, now: float) -> bool:
+    """Update `states` in place; return True when anything changed (cache needs saving)."""
     cutoff = retention_cutoff(now)
     found = list_files(roots, ".jsonl", cutoff)
+    before = len(states.files)
+    changed = False
     for path, entry in states.plan(found):
+        changed = True
         try:
             lines, offset = read_new_lines(
                 path, entry["offset"], lambda l: b'"assistant"' in l and b'"usage"' in l
@@ -75,6 +79,7 @@ def scan(states: FileStates, roots, now: float) -> None:
             del events[key]
         size, mtime = found[path]
         FileStates.done(entry, size, mtime, offset)
+    return changed or len(states.files) != before
 
 
 def dedup_events(states: FileStates) -> list[UsageEvent]:
@@ -162,8 +167,8 @@ class ClaudeProvider(Provider):
         if self._states is None:
             data = self.load_scan_cache()
             self._states = FileStates(data if data.get("version") == SCAN_VERSION else None)
-        scan(self._states, roots, now)
-        self.save_scan_cache({"version": SCAN_VERSION, **self._states.to_dict()})
+        if scan(self._states, roots, now):
+            self.save_scan_cache({"version": SCAN_VERSION, **self._states.to_dict()})
         events = dedup_events(self._states)
         return LocalUsage(State.OK, aggregate(events, now), source=str(roots[0]),
                           exact=True, files=len(self._states.files), daily=daily_totals(events, now))

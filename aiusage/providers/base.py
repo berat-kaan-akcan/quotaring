@@ -20,6 +20,19 @@ from .. import paths
 
 log = logging.getLogger(__name__)
 
+# Set on application quit: stops retries and kills provider CLIs still running.
+_shutdown = threading.Event()
+_live: set = set()
+_live_lock = threading.Lock()
+
+
+def shutdown_children() -> None:
+    _shutdown.set()
+    with _live_lock:
+        procs = list(_live)
+    for p in procs:
+        p.kill()
+
 
 class QuotaError(Exception):
     """A classified quota failure. `detail` must never contain tokens or payloads."""
@@ -51,7 +64,7 @@ def with_retries(fn: Callable[[], object], attempts: int = 3, base_delay: float 
         try:
             return fn()
         except QuotaError as e:
-            if not e.transient or i == attempts - 1:
+            if not e.transient or i == attempts - 1 or _shutdown.is_set():
                 raise
             sleep(base_delay * (2 ** i))
     raise AssertionError("unreachable")
@@ -86,6 +99,8 @@ class JsonLineProcess:
     """
 
     def __init__(self, argv: list[str], cwd: str | None = None):
+        if _shutdown.is_set():
+            raise QuotaError(State.UNAVAILABLE, "Shutting down")
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         self.proc = subprocess.Popen(
             argv, cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -93,6 +108,14 @@ class JsonLineProcess:
         )
         self.lines: queue.Queue = queue.Queue()
         threading.Thread(target=self._pump, daemon=True).start()
+        with _live_lock:
+            _live.add(self)
+
+    def kill(self) -> None:
+        try:
+            self.proc.kill()
+        except OSError:
+            pass
 
     def _pump(self):
         try:
@@ -128,6 +151,8 @@ class JsonLineProcess:
                 return msg
 
     def close(self) -> None:
+        with _live_lock:
+            _live.discard(self)
         if self.proc.poll() is None:
             try:
                 self.proc.stdin.close()

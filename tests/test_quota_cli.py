@@ -176,3 +176,25 @@ def test_claude_native_install_fallback(settings, tmp_path, isolated_dirs):
         os.chmod(f, 0o755)
     (versions / "notes.txt").write_text("x")
     assert cmod.native_install_binary().endswith("2.1.312")
+
+
+def test_shutdown_kills_running_query_and_stops_retries(settings, tmp_path):
+    import threading
+    from aiusage.providers import base
+    settings.timeout_seconds = 30
+    settings.claude_command = fake_cli(tmp_path, "claude", CLAUDE_TEMPLATE.format(mode="hang"))
+    out = {}
+    t = threading.Thread(target=lambda: out.setdefault("q", ClaudeProvider(settings, roots=[tmp_path]).collect_quota(NOW)))
+    start = time.monotonic()
+    t.start()
+    deadline = time.monotonic() + 10
+    while not base._live and time.monotonic() < deadline:
+        time.sleep(0.05)
+    try:
+        base.shutdown_children()
+        t.join(10)
+    finally:
+        base._shutdown.clear()
+    assert not t.is_alive()
+    assert time.monotonic() - start < 8  # not 3 x 30 s
+    assert out["q"].state == State.UNAVAILABLE

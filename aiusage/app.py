@@ -16,6 +16,7 @@ from . import __version__, autostart, paths, settings as settings_mod
 from .engine import Engine
 from .model import State
 from .providers import ALL
+from .providers.base import shutdown_children
 from .i18n import set_language, tr, tr_label
 from .ui import format as fmt, theme
 from .ui.settings_dialog import SettingsDialog
@@ -257,7 +258,9 @@ class Controller(QObject):
     def quit(self):
         self.save_settings()
         self.engine.save_cache()
-        self.pool.clear()
+        self.pool.clear()  # drop queued jobs
+        shutdown_children()  # running quota queries end now instead of after their timeout
+        self.pool.waitForDone(5000)
         if self.tray:
             self.tray.hide()
         self.app.quit()
