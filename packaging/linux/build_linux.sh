@@ -18,46 +18,8 @@ mkdir -p "$OUT"
 tar -C dist -czf "$OUT/ai-usage-widget-$VERSION-linux-$ARCH.tar.gz" ai-usage-widget
 echo "built $OUT/ai-usage-widget-$VERSION-linux-$ARCH.tar.gz"
 
-# Shared filesystem layout: /opt/ai-usage-widget + launcher + desktop file + icons
-stage() {
-  local dest=$1
-  mkdir -p "$dest/opt" "$dest/usr/bin" "$dest/usr/share/applications"
-  cp -a dist/ai-usage-widget "$dest/opt/ai-usage-widget"
-  ln -sf /opt/ai-usage-widget/ai-usage-widget "$dest/usr/bin/ai-usage-widget"
-  install -m644 packaging/linux/ai-usage-widget.desktop "$dest/usr/share/applications/"
-  for s in 16 32 48 64 128 256; do
-    install -Dm644 "packaging/icons/ai-usage-widget-$s.png" \
-      "$dest/usr/share/icons/hicolor/${s}x${s}/apps/ai-usage-widget.png"
-  done
-}
-
-# 2) .deb (dpkg-deb if available, otherwise assembled with ar + tar, which is the same format)
-DEBARCH=$([ "$ARCH" = x86_64 ] && echo amd64 || echo "$ARCH")
-DEB=$(mktemp -d)
-stage "$DEB/root"
-mkdir -p "$DEB/root/DEBIAN"
-cat > "$DEB/root/DEBIAN/control" <<CTRL
-Package: ai-usage-widget
-Version: $VERSION
-Section: utils
-Priority: optional
-Architecture: $DEBARCH
-Maintainer: AI Usage Widget maintainers <noreply@example.invalid>
-Description: Desktop widget for Claude Code, Codex and Antigravity usage
- Shows local token activity and provider-reported account quota.
-CTRL
-DEBFILE="$OUT/ai-usage-widget_${VERSION}_${DEBARCH}.deb"
-if command -v dpkg-deb >/dev/null; then
-  dpkg-deb --root-owner-group --build "$DEB/root" "$DEBFILE"
-else
-  (cd "$DEB/root" && tar --owner=0 --group=0 -czf "$DEB/control.tar.gz" -C DEBIAN .)
-  (cd "$DEB/root" && tar --owner=0 --group=0 --exclude=./DEBIAN -czf "$DEB/data.tar.gz" .)
-  echo "2.0" > "$DEB/debian-binary"
-  rm -f "$DEBFILE"
-  (cd "$DEB" && ar rc "$DEBFILE" debian-binary control.tar.gz data.tar.gz)
-fi
-rm -rf "$DEB"
-echo "built $DEBFILE"
+# 2) .deb
+"$ROOT/packaging/linux/make_deb.sh" dist/ai-usage-widget "$OUT" "$VERSION"
 
 # 3) AppImage (needs appimagetool on PATH; not downloaded automatically)
 if command -v appimagetool >/dev/null; then

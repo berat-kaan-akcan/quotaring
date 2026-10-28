@@ -39,9 +39,14 @@ python3 -m venv .venv
 .venv/bin/python -m aiusage                       # Windows: .venv\Scripts\pythonw -m aiusage
 ```
 
-### Linux packages (built by `packaging/linux/build_linux.sh`)
-- Portable: extract `ai-usage-widget-<ver>-linux-x86_64.tar.gz`, run `ai-usage-widget/ai-usage-widget`.
-- Debian/Ubuntu: `sudo apt install ./ai-usage-widget_<ver>_amd64.deb` (installs to `/opt`).
+### Linux packages
+Recommended: `./packaging/linux/build_in_docker.sh` builds inside Ubuntu 22.04 (glibc 2.35, runs the
+tests there first) and produces a bundle that runs on Ubuntu 22.04+, Debian 12+, Fedora, Arch, …:
+- Portable: extract `ai-usage-widget-<ver>-linux-x86_64-ubuntu22.04.tar.gz`, run `ai-usage-widget/ai-usage-widget`.
+- Debian/Ubuntu: `sudo apt install ./ai-usage-widget_<ver>~ubuntu22.04_amd64.deb` (installs to `/opt`).
+
+`./packaging/linux/build_linux.sh` does the same on the host without Docker (the result only runs
+on distros at least as new as the build machine).
 - Arch/CachyOS: `./packaging/arch/build.sh -s` then `sudo pacman -U packaging/out/ai-usage-widget-*.pkg.tar.zst`
   (uses system `python` + `pyside6`).
 - AppImage: built only when `appimagetool` is on `PATH`.
@@ -61,7 +66,12 @@ This runs the tests, builds `dist\ai-usage-widget\ai-usage-widget.exe`, a zip, a
 - ⟳ refresh now · ▾ expanded view (per-model table + period picker, quota source, weekly share)
   · ⚙ settings · ✕ hide to tray (or quit, if tray is disabled/unavailable).
 - Tray icon: click to show/hide; right-click for Refresh, Settings, Quit.
-- Hover the token numbers for input / output / reasoning / cache breakdown.
+- Hover the token numbers for input / output / reasoning / cache breakdown; the expanded view
+  also has a 14-day bar chart of locally recorded tokens (hover a bar for the day's total).
+- Right-click anywhere in the widget for the same menu as the tray (useful on GNOME without a tray).
+- Keys: F5 / Ctrl+R refresh · Ctrl+E expand · Ctrl+, settings · Esc hide · Ctrl+Q quit.
+- The tray tooltip summarizes each provider (quota only when the provider reported it).
+- Only one instance runs per user; a second launch exits (`--allow-multiple` overrides).
 
 Command line: `--hidden` (start in tray), `--xwayland` (see Wayland below), `--debug`
 (verbose logs), `--print` (collect once and print JSON, no window), `--version`.
@@ -115,7 +125,8 @@ Toggle **Start at login** in Settings.
 - **Opacity** is applied to the window background (works with any compositor); text stays opaque.
 - A harmless `qt.qpa.services: Failed to register with host portal` warning appears when running
   from source without an installed `.desktop` file.
-- Single instance is not enforced.
+- PySide6 6.12 aborts at exit on Python < 3.12 (a reference-counting bug in its bindings);
+  `requirements.txt` therefore selects PySide6 < 6.12 on those Python versions.
 - Antigravity's database format is internal and may change; unreadable data is skipped and the
   count of skipped databases is shown.
 - Claude's `get_usage` is experimental; a CLI update can turn it into *Unsupported* or *Unavailable*.
@@ -129,6 +140,8 @@ Toggle **Start at login** in Settings.
 | Quota "Unsupported" | API-key account (no subscription limits) or a CLI version without the query. |
 | Numbers look old | Hover "updated …"; press ⟳. A *Stale* label means the last refresh failed and old values are shown. |
 | Want to inspect raw output | `python -m aiusage --print` |
+| "already running" but no window | It is in the tray (or right-click menu → Show). A lock left by a crashed run is taken over automatically. |
+| `claude` installed with the native installer but "Not installed" | The widget also looks in `~/.local/share/claude/versions/`; otherwise set the path in Settings. |
 
 ## Development
 

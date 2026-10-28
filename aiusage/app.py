@@ -278,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.xwayland and os.environ.get("WAYLAND_DISPLAY"):
         os.environ["QT_QPA_PLATFORM"] = "xcb"
-    # One widget per user session; a stale lock from a crashed run is taken over after 5 s.
+    # One widget per user session. QLockFile checks the owner PID, so a crashed run's lock is taken over.
     lock_dir = paths.cache_dir()
     lock_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     lock = QLockFile(str(lock_dir / "instance.lock"))

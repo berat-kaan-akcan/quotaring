@@ -10,7 +10,7 @@ docker run --rm -v "$PWD":/src:ro -v "$PWD/packaging/out":/out \
   -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" -e PYTHONDONTWRITEBYTECODE=1 "$IMAGE" bash -euc '
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
-  apt-get install -y -qq python3 python3-venv python3-pip binutils \
+  apt-get install -y -qq python3 python3-venv python3-pip binutils dpkg-dev \
     libgl1 libegl1 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 libdbus-1-3 libglib2.0-0 \
     libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
     libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 libwayland-client0 libwayland-cursor0 libwayland-egl1 >/dev/null
@@ -27,6 +27,7 @@ docker run --rm -v "$PWD":/src:ro -v "$PWD/packaging/out":/out \
   F=/out/ai-usage-widget-$VERSION-linux-x86_64-ubuntu22.04.tar.gz
   tar -C dist -czf "$F" ai-usage-widget
   QT_QPA_PLATFORM=offscreen dist/ai-usage-widget/ai-usage-widget --version
-  chown "$HOST_UID:$HOST_GID" "$F"
   echo "built packaging/out/$(basename "$F")"
+  packaging/linux/make_deb.sh dist/ai-usage-widget /out "$VERSION" "~ubuntu22.04"
+  chown "$HOST_UID:$HOST_GID" /out/*ubuntu22.04*
 '
