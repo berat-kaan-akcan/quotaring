@@ -1,0 +1,27 @@
+# Arch / CachyOS package built from this repository's source (uses system Python + PySide6).
+# Build:  ./packaging/arch/build.sh      (creates the source tarball, then runs makepkg)
+pkgname=ai-usage-widget
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Desktop widget for Claude Code, Codex and Antigravity usage"
+arch=('any')
+license=('MIT')
+depends=('python' 'pyside6')
+source=("$pkgname-$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+  install -d "$pkgdir/usr/share/$pkgname"
+  cp -r aiusage "$pkgdir/usr/share/$pkgname/"
+  python -m compileall -q "$pkgdir/usr/share/$pkgname/aiusage"
+  install -Dm755 /dev/stdin "$pkgdir/usr/bin/$pkgname" <<'SH'
+#!/bin/sh
+exec /usr/bin/python3 -c 'import sys; sys.path.insert(0, "/usr/share/ai-usage-widget"); from aiusage.app import main; sys.exit(main())' "$@"
+SH
+  install -Dm644 packaging/linux/ai-usage-widget.desktop "$pkgdir/usr/share/applications/$pkgname.desktop"
+  for s in 16 32 48 64 128 256; do
+    install -Dm644 "packaging/icons/ai-usage-widget-$s.png" "$pkgdir/usr/share/icons/hicolor/${s}x${s}/apps/$pkgname.png"
+  done
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

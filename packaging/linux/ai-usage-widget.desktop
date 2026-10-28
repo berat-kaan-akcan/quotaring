@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=AI Usage Widget
+GenericName=AI usage monitor
+Comment=Claude Code, Codex and Antigravity usage in one widget
+Exec=ai-usage-widget
+Icon=ai-usage-widget
+Terminal=false
+Categories=Utility;Monitor;
+StartupWMClass=ai-usage-widget
