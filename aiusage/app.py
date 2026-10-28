@@ -1,0 +1,283 @@
+"""Application wiring: engine, background workers, timers, tray, window."""
+
+from __future__ import annotations
+
+import argparse
+import logging
+import sys
+import time
+
+from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal
+from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
+from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
+
+from . import __version__, autostart, paths, settings as settings_mod
+from .engine import Engine
+from .model import State
+from .providers import ALL
+from .ui import theme
+from .ui.settings_dialog import SettingsDialog
+from .ui.window import MainWindow
+
+log = logging.getLogger("aiusage")
+
+
+def make_icon() -> QIcon:
+    icon = QIcon()
+    for size in (16, 22, 24, 32, 48, 64, 128, 256):
+        pm = QPixmap(size, size)
+        pm.fill(QColor(0, 0, 0, 0))
+        p = QPainter(pm)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(QColor(0, 0, 0, 0))
+        p.setBrush(QColor("#25272c"))
+        p.drawRoundedRect(0, 0, size, size, size * 0.22, size * 0.22)
+        w = size / 7
+        for i, (h, c) in enumerate(((0.45, "#d97757"), (0.7, "#10a37f"), (0.55, "#4285f4"))):
+            x = w * (1 + 2 * i)
+            hh = (size - 2 * w) * h
+            p.setBrush(QColor(c))
+            p.drawRoundedRect(x, size - w - hh, w, hh, w * 0.4, w * 0.4)
+        p.end()
+        icon.addPixmap(pm)
+    return icon
+
+
+class _Signals(QObject):
+    done = Signal(str, str, object)  # provider id, kind ("local"|"quota"), result
+
+
+class Job(QRunnable):
+    def __init__(self, fn, pid: str, kind: str, signals: _Signals):
+        super().__init__()
+        self.fn, self.pid, self.kind, self.signals = fn, pid, kind, signals
+
+    def run(self):
+        try:
+            result = self.fn(self.pid)
+        except Exception:  # noqa: BLE001 - engine/provider already isolate; belt and braces
+            log.exception("worker failed: %s %s", self.pid, self.kind)
+            result = None
+        self.signals.done.emit(self.pid, self.kind, result)
+
+
+class Controller(QObject):
+    def __init__(self, app: QApplication, start_hidden: bool):
+        super().__init__()
+        self.app = app
+        self.settings = settings_mod.load()
+        self.providers = [P(self.settings) for P in ALL]
+        self.engine = Engine(self.settings, self.providers)
+        self.pool = QThreadPool()
+        self.pool.setMaxThreadCount(4)
+        self.signals = _Signals()
+        self.signals.done.connect(self._on_done)
+        self.notified: set[tuple[str, str, float | None]] = set()
+
+        self.palette = theme.resolve(self.settings.theme)
+        self.window = MainWindow([(p.id, p.name) for p in self.providers], self.palette, self.settings)
+        self.icon = make_icon()
+        self.window.setWindowIcon(self.icon)
+        app.setWindowIcon(self.icon)
+        self.window.refresh_requested.connect(lambda: self.refresh(force=True))
+        self.window.settings_requested.connect(self.open_settings)
+        self.window.hide_requested.connect(self.hide_window)
+        self.window.mode_changed.connect(lambda *_: self.save_settings())
+        self.window.closeEvent = self._close_event
+
+        self.tray = None
+        if QSystemTrayIcon.isSystemTrayAvailable():
+            self.tray = QSystemTrayIcon(self.icon)
+            menu = QMenu()
+            for text, fn in (("Show / hide", self.toggle_window), ("Refresh now", lambda: self.refresh(force=True)),
+                             ("Settings…", self.open_settings)):
+                act = QAction(text, menu)
+                act.triggered.connect(fn)
+                menu.addAction(act)
+            menu.addSeparator()
+            quit_act = QAction("Quit", menu)
+            quit_act.triggered.connect(self.quit)
+            menu.addAction(quit_act)
+            self.tray.setContextMenu(menu)
+            self.tray.setToolTip("AI Usage")
+            self.tray.activated.connect(self._tray_activated)
+            self.tray.show()
+            self._menu = menu
+
+        hints = QApplication.styleHints()
+        if hasattr(hints, "colorSchemeChanged"):
+            hints.colorSchemeChanged.connect(lambda *_: self.apply_theme())
+
+        for snap in self.engine.snapshots.values():
+            self.window.cards[snap.provider_id].update_snapshot(snap)
+        self.restore_geometry()
+        if not start_hidden or self.tray is None:
+            self.window.show()
+
+        self.local_timer = QTimer(self)
+        self.local_timer.timeout.connect(lambda: self.refresh(local=True, quota=False))
+        self.quota_timer = QTimer(self)
+        self.quota_timer.timeout.connect(lambda: self.refresh(local=False, quota=True))
+        self.tick = QTimer(self)  # keeps countdowns and "updated … ago" current
+        self.tick.timeout.connect(self.repaint_cards)
+        self.tick.start(30_000)
+        self.apply_intervals()
+        QTimer.singleShot(0, lambda: self.refresh(force=True))
+
+    # -- refresh --------------------------------------------------------
+    def apply_intervals(self):
+        self.local_timer.start(self.settings.local_refresh_seconds * 1000)
+        self.quota_timer.start(60_000)  # cheap check; engine decides when quota is due
+
+    def refresh(self, local: bool = True, quota: bool = True, force: bool = False):
+        now = time.time()
+        for p in self.providers:
+            if local and self.engine.try_begin(p.id, "local"):
+                self.pool.start(Job(self.engine.run_local, p.id, "local", self.signals))
+            if quota and self.engine.quota_due(p.id, now, force) and self.engine.try_begin(p.id, "quota"):
+                self.pool.start(Job(self.engine.run_quota, p.id, "quota", self.signals))
+        self._update_status()
+
+    def _on_done(self, pid: str, kind: str, result):
+        self.engine.end(pid, kind)
+        if result is not None:
+            snap = (self.engine.apply_local if kind == "local" else self.engine.apply_quota)(pid, result)
+            self.window.cards[pid].update_snapshot(snap)
+            if kind == "quota":
+                self._maybe_notify(snap)
+        if not self.engine.busy:
+            self.engine.save_cache()
+        self._update_status()
+
+    def _update_status(self):
+        self.window.status.setText("refreshing…" if self.engine.busy else "")
+
+    def repaint_cards(self):
+        for pid, snap in self.engine.snapshots.items():
+            self.window.cards[pid].update_snapshot(snap)
+
+    def _maybe_notify(self, snap):
+        thr = self.settings.notify_threshold
+        if not thr or self.tray is None or snap.quota.state != State.OK:
+            return  # only verified, fresh quota data triggers notifications
+        for w in snap.quota.windows:
+            key = (snap.provider_id, w.key, w.resets_at)
+            if w.used_percent >= thr and key not in self.notified:
+                self.notified.add(key)
+                self.tray.showMessage(f"{snap.name}: {w.label} at {w.used_percent:.0f}%",
+                                      "Reported by the provider's account interface.",
+                                      QSystemTrayIcon.Warning, 8000)
+
+    # -- window / settings ----------------------------------------------
+    def apply_theme(self):
+        self.palette = theme.resolve(self.settings.theme)
+        self.window.set_palette(self.palette)
+
+    def open_settings(self):
+        dlg = SettingsDialog(self.settings, autostart.supported(), self.window)
+        dlg.setWindowIcon(self.icon)
+        dlg.setStyleSheet(theme.stylesheet(self.palette) + f"QDialog {{ background: {self.palette.bg}; }}")
+        if not dlg.exec():
+            return
+        before_top = self.settings.always_on_top
+        dlg.apply_to(self.settings)
+        if self.settings.always_on_top != before_top:
+            self.window.apply_flags()
+        try:
+            if autostart.supported() and autostart.is_enabled() != self.settings.start_at_login:
+                autostart.set_enabled(self.settings.start_at_login)
+        except OSError:
+            log.warning("could not change start-at-login")
+        self.save_settings()
+        self.apply_theme()
+        self.apply_intervals()
+        self.engine.next_quota_at.clear()
+        self.refresh(force=True)
+
+    def save_settings(self):
+        g = self.window.geometry()
+        self.settings.window = {"x": g.x(), "y": g.y(), "w": g.width(), "h": g.height()}
+        try:
+            settings_mod.save(self.settings)
+        except OSError:
+            log.warning("could not save settings")
+
+    def restore_geometry(self):
+        w = self.settings.window or {}
+        self.window.resize(int(w.get("w", 360)), int(w.get("h", 520)))
+        if "x" in w and "y" in w:
+            # Ignored by most Wayland compositors; works on Windows and X11.
+            self.window.move(int(w["x"]), int(w["y"]))
+
+    def toggle_window(self):
+        if self.window.isVisible():
+            self.hide_window()
+        else:
+            self.window.show()
+            self.window.raise_()
+            self.window.activateWindow()
+
+    def hide_window(self):
+        self.save_settings()
+        if self.tray is not None and self.settings.minimize_to_tray:
+            self.window.hide()
+        else:
+            self.quit()
+
+    def _close_event(self, e):
+        e.ignore()
+        self.hide_window()
+
+    def _tray_activated(self, reason):
+        if reason in (QSystemTrayIcon.Trigger, QSystemTrayIcon.DoubleClick):
+            self.toggle_window()
+
+    def quit(self):
+        self.save_settings()
+        self.engine.save_cache()
+        self.pool.clear()
+        if self.tray:
+            self.tray.hide()
+        self.app.quit()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="aiusage", description="AI usage desktop widget")
+    parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument("--hidden", action="store_true", help="start hidden in the tray")
+    parser.add_argument("--debug", action="store_true", help="verbose logging")
+    parser.add_argument("--print", dest="print_json", action="store_true",
+                        help="collect once and print the snapshot as JSON (no window)")
+    args = parser.parse_args(argv)
+
+    logging.basicConfig(level=logging.DEBUG if args.debug else logging.WARNING,
+                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    if args.print_json:
+        return print_once()
+
+    app = QApplication(sys.argv[:1])
+    app.setApplicationName("AI Usage Widget")
+    app.setDesktopFileName("ai-usage-widget")
+    app.setQuitOnLastWindowClosed(False)
+    _controller = Controller(app, start_hidden=args.hidden)  # noqa: F841 - keep alive
+    return app.exec()
+
+
+def print_once() -> int:
+    import json
+    from concurrent.futures import ThreadPoolExecutor
+
+    s = settings_mod.load()
+    eng = Engine(s, [P(s) for P in ALL])
+    with ThreadPoolExecutor(6) as ex:
+        futs = {(pid, k): ex.submit(eng.run_local if k == "local" else eng.run_quota, pid)
+                for pid in eng.providers for k in ("local", "quota")}
+    for (pid, k), f in futs.items():
+        (eng.apply_local if k == "local" else eng.apply_quota)(pid, f.result())
+    eng.save_cache()
+    out = {pid: s.to_dict() for pid, s in eng.snapshots.items()}
+    for snap in out.values():  # keep the output short: drop per-model details of long periods
+        for per in snap["local"]["periods"]:
+            per.pop("by_model", None) if per["key"] in ("30d", "all") else None
+    print(json.dumps({"cache_dir": str(paths.cache_dir()), "providers": out}, indent=1))
+    return 0
