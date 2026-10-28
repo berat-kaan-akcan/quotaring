@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import time
 
@@ -55,8 +56,8 @@ class Job(QRunnable):
     def run(self):
         try:
             result = self.fn(self.pid)
-        except Exception:  # noqa: BLE001 - engine/provider already isolate; belt and braces
-            log.exception("worker failed: %s %s", self.pid, self.kind)
+        except Exception as e:  # noqa: BLE001 - engine/provider already isolate; belt and braces
+            log.warning("worker failed: %s %s (%s)", self.pid, self.kind, type(e).__name__)
             result = None
         self.signals.done.emit(self.pid, self.kind, result)
 
@@ -246,6 +247,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--hidden", action="store_true", help="start hidden in the tray")
     parser.add_argument("--debug", action="store_true", help="verbose logging")
+    parser.add_argument("--xwayland", action="store_true",
+                        help="on Wayland, run through XWayland so keep-above and saved position work")
     parser.add_argument("--print", dest="print_json", action="store_true",
                         help="collect once and print the snapshot as JSON (no window)")
     args = parser.parse_args(argv)
@@ -255,6 +258,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.print_json:
         return print_once()
 
+    if args.xwayland and os.environ.get("WAYLAND_DISPLAY"):
+        os.environ["QT_QPA_PLATFORM"] = "xcb"
     app = QApplication(sys.argv[:1])
     app.setApplicationName("AI Usage Widget")
     app.setDesktopFileName("ai-usage-widget")

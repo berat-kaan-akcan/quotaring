@@ -24,7 +24,8 @@ def read_json(path: Path, default):
 
 
 def write_json(path: Path, obj) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    # Private: caches hold project paths and usage metadata.
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".tmp-", suffix=".json")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:

@@ -159,7 +159,9 @@ class Provider:
         try:
             usage = self._collect_local(now)
         except Exception as e:  # noqa: BLE001 - isolation boundary
-            log.exception("%s: local collection failed", self.id)
+            # Type name only: exception messages can quote file content.
+            log.warning("%s: local collection failed (%s)", self.id, type(e).__name__)
+            log.debug("traceback", exc_info=True)
             usage = LocalUsage(State.UNAVAILABLE, detail=f"Local collection failed ({type(e).__name__})")
         usage.updated_at = now
         return usage
@@ -174,7 +176,8 @@ class Provider:
         except QuotaError as e:
             quota = Quota(e.state, detail=e.detail)
         except Exception as e:  # noqa: BLE001 - isolation boundary
-            log.exception("%s: quota collection failed", self.id)
+            log.warning("%s: quota collection failed (%s)", self.id, type(e).__name__)
+            log.debug("traceback", exc_info=True)
             quota = Quota(State.UNAVAILABLE, detail=f"Quota query failed ({type(e).__name__})")
         quota.updated_at = now
         return quota
