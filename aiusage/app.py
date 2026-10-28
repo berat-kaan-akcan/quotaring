@@ -16,6 +16,7 @@ from . import __version__, autostart, paths, settings as settings_mod
 from .engine import Engine
 from .model import State
 from .providers import ALL
+from .i18n import set_language, tr, tr_label
 from .ui import format as fmt, theme
 from .ui.settings_dialog import SettingsDialog
 from .ui.window import MainWindow
@@ -67,6 +68,7 @@ class Controller(QObject):
         super().__init__()
         self.app = app
         self.settings = settings_mod.load()
+        set_language(self.settings.language)  # before any widget is built
         self.providers = [P(self.settings) for P in ALL]
         self.engine = Engine(self.settings, self.providers)
         self.pool = QThreadPool()
@@ -91,7 +93,7 @@ class Controller(QObject):
             self.tray = QSystemTrayIcon(self.icon)
             self._menu = self._build_menu()
             self.tray.setContextMenu(self._menu)
-            self.tray.setToolTip("AI Usage")
+            self.tray.setToolTip(tr("AI Usage"))
             self.tray.activated.connect(self._tray_activated)
             self.tray.show()
         # Same menu on right-click in the window: the only menu on GNOME without a tray.
@@ -129,13 +131,14 @@ class Controller(QObject):
 
     def _build_menu(self) -> QMenu:
         menu = QMenu()
-        for text, fn in (("Show / hide", self.toggle_window), ("Refresh now\tF5", lambda: self.refresh(force=True)),
-                         ("Settings…\tCtrl+,", self.open_settings)):
+        for text, fn in ((tr("Show / hide"), self.toggle_window),
+                         (tr("Refresh now") + "\tF5", lambda: self.refresh(force=True)),
+                         (tr("Settings…") + "\tCtrl+,", self.open_settings)):
             act = QAction(text, menu)
             act.triggered.connect(fn)
             menu.addAction(act)
         menu.addSeparator()
-        quit_act = QAction("Quit\tCtrl+Q", menu)
+        quit_act = QAction(tr("Quit") + "\tCtrl+Q", menu)
         quit_act.triggered.connect(self.quit)
         menu.addAction(quit_act)
         return menu
@@ -166,9 +169,9 @@ class Controller(QObject):
         self._update_status()
 
     def _update_status(self):
-        self.window.status.setText("refreshing…" if self.engine.busy else "")
+        self.window.status.setText(tr("refreshing…") if self.engine.busy else "")
         if self.tray is not None:
-            self.tray.setToolTip("AI Usage\n" + fmt.summary(self.engine.snapshots.values(), time.time()))
+            self.tray.setToolTip(tr("AI Usage") + "\n" + fmt.summary(self.engine.snapshots.values(), time.time()))
 
     def repaint_cards(self):
         for pid, snap in self.engine.snapshots.items():
@@ -182,8 +185,9 @@ class Controller(QObject):
             key = (snap.provider_id, w.key, w.resets_at)
             if w.used_percent >= thr and key not in self.notified:
                 self.notified.add(key)
-                self.tray.showMessage(f"{snap.name}: {w.label} at {w.used_percent:.0f}%",
-                                      "Reported by the provider's account interface.",
+                self.tray.showMessage(tr("{name}: {label} at {pct}%").format(
+                                          name=snap.name, label=tr_label(w.label), pct=f"{w.used_percent:.0f}"),
+                                      tr("Reported by the provider's account interface."),
                                       QSystemTrayIcon.Warning, 8000)
 
     # -- window / settings ----------------------------------------------

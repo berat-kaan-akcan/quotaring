@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from ..i18n import language, tr, tr_label, weekday
 from ..model import State
 
 STATE_TEXT = {
@@ -17,6 +18,15 @@ STATE_TEXT = {
     State.DISABLED: "Disabled",
     State.PENDING: "Loading…",
 }
+
+
+def state_text(state: State) -> str:
+    return tr(STATE_TEXT[state])
+
+
+def pct(value: float) -> str:
+    """'24%' in English, '%24' in Turkish."""
+    return f"%{value:.0f}" if language() == "tr" else f"{value:.0f}%"
 
 
 def tokens(n: int) -> str:
@@ -33,37 +43,39 @@ def duration(seconds: float) -> str:
     d, s = divmod(s, 86400)
     h, s = divmod(s, 3600)
     m = s // 60
+    ud, uh, um = ("g", "sa", "dk") if language() == "tr" else ("d", "h", "m")
     if d:
-        return f"{d}d {h}h"
+        return f"{d}{ud} {h}{uh}"
     if h:
-        return f"{h}h {m}m"
-    return f"{m}m"
+        return f"{h}{uh} {m}{um}"
+    return f"{m}{um}"
 
 
 def resets(resets_at: float | None, now: float) -> str:
     if resets_at is None:
-        return "reset time unknown"
+        return tr("reset time unknown")
     if resets_at <= now:
-        return "reset passed · awaiting refresh"
+        return tr("reset passed · awaiting refresh")
     when = datetime.fromtimestamp(resets_at).astimezone()
     if resets_at - now < 86400:
-        return f"resets in {duration(resets_at - now)}"
-    return f"resets {when.strftime('%a %H:%M')} ({duration(resets_at - now)})"
+        return tr("resets in {d}").format(d=duration(resets_at - now))
+    stamp = f"{weekday(when.strftime('%a'))} {when.strftime('%H:%M')}"
+    return tr("resets {when} ({d})").format(when=stamp, d=duration(resets_at - now))
 
 
 def age(ts: float | None, now: float) -> str:
     if ts is None:
-        return "never"
+        return tr("never")
     delta = now - ts
     if delta < 60:
-        return "just now"
-    return f"{duration(delta)} ago"
+        return tr("just now")
+    return tr("{d} ago").format(d=duration(delta))
 
 
 def updated(ts: float | None, now: float) -> str:
     if ts is None:
-        return "not updated yet"
-    return f"updated {datetime.fromtimestamp(ts).strftime('%H:%M')} ({age(ts, now)})"
+        return tr("not updated yet")
+    return tr("updated {time} ({age})").format(time=datetime.fromtimestamp(ts).strftime('%H:%M'), age=age(ts, now))
 
 
 def summary(snapshots, now: float) -> str:
@@ -73,13 +85,17 @@ def summary(snapshots, now: float) -> str:
         q, loc = s.quota, s.local
         parts = []
         if q.state in (State.OK, State.STALE) and q.windows:
-            parts.append(" · ".join(f"{w.label.split(' ')[0]} {w.used_percent:.0f}%" for w in q.windows[:2]))
+            if language() == "tr":
+                names = [tr_label(w.label).split(" · ")[0] for w in q.windows[:2]]
+            else:
+                names = [w.label.split(" ")[0] for w in q.windows[:2]]
+            parts.append(" · ".join(f"{n} {pct(w.used_percent)}" for n, w in zip(names, q.windows[:2])))
             if q.state == State.STALE:
-                parts[-1] += " (stale)"
+                parts[-1] += tr(" (stale)")
         per = loc.period("today") if loc.state in (State.OK, State.STALE) else None
         if per is not None:
-            parts.append(f"today {tokens(per.total.total)} tok")
+            parts.append(tr("today {v} tok").format(v=tokens(per.total.total)))
         if not parts:
-            parts.append(STATE_TEXT[loc.state if loc.state != State.OK else q.state])
+            parts.append(state_text(loc.state if loc.state != State.OK else q.state))
         lines.append(f"{s.name}: " + ", ".join(parts))
     return "\n".join(lines)

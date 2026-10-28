@@ -17,6 +17,7 @@ class Settings:
     quota_refresh_seconds: int = 300
     timeout_seconds: int = 20
     theme: str = "system"  # system | light | dark
+    language: str = "system"  # system | en | tr
     opacity: float = 0.96
     always_on_top: bool = True
     start_at_login: bool = False
@@ -36,6 +37,8 @@ class Settings:
         self.timeout_seconds = max(5, min(120, int(self.timeout_seconds)))
         self.opacity = max(0.3, min(1.0, float(self.opacity)))
         self.notify_threshold = max(0, min(100, int(self.notify_threshold)))
+        if self.language not in ("system", "en", "tr"):
+            self.language = "system"
         if self.theme not in ("system", "light", "dark"):
             self.theme = "system"
         if self.period not in ("today", "5h", "7d", "30d", "all"):

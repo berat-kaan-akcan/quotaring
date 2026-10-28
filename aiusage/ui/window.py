@@ -7,6 +7,7 @@ from PySide6.QtGui import QColor, QPainter, QPainterPath
 from PySide6.QtWidgets import (QComboBox, QHBoxLayout, QLabel, QScrollArea, QSizeGrip, QToolButton,
                                QVBoxLayout, QWidget)
 
+from ..i18n import tr
 from .card import ProviderCard
 from .theme import Palette, stylesheet
 
@@ -48,7 +49,7 @@ class MainWindow(QWidget):
         super().__init__()
         self.settings = settings
         self.palette_ = palette
-        self.setWindowTitle("AI Usage")
+        self.setWindowTitle(tr("AI Usage"))
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.apply_flags()
 
@@ -60,27 +61,27 @@ class MainWindow(QWidget):
         hl = QHBoxLayout(self.header)
         hl.setContentsMargins(2, 0, 0, 0)
         hl.setSpacing(2)
-        title = QLabel("AI Usage")
+        title = QLabel(tr("AI Usage"))
         title.setObjectName("title")
         hl.addWidget(title)
         self.status = QLabel("")
         self.status.setObjectName("small")
         hl.addWidget(self.status)
         hl.addStretch(1)
-        self.btn_refresh = self._button("⟳", "Refresh now")
-        self.btn_expand = self._button("▾", "Expand / collapse details")
-        self.btn_settings = self._button("⚙", "Settings")
-        self.btn_hide = self._button("✕", "Hide to tray")
+        self.btn_refresh = self._button("⟳", tr("Refresh now"))
+        self.btn_expand = self._button("▾", tr("Expand / collapse details"))
+        self.btn_settings = self._button("⚙", tr("Settings"))
+        self.btn_hide = self._button("✕", tr("Hide to tray"))
         for b in (self.btn_refresh, self.btn_expand, self.btn_settings, self.btn_hide):
             hl.addWidget(b)
         outer.addWidget(self.header)
 
         self.period_box = QComboBox()
         for key, label in PERIODS:
-            self.period_box.addItem(label, key)
-        self.period_box.setToolTip("Period for the per-model breakdown")
+            self.period_box.addItem(tr(label), key)
+        self.period_box.setToolTip(tr("Period for the per-model breakdown"))
         prow = QHBoxLayout()
-        lab = QLabel("Breakdown:")
+        lab = QLabel(tr("Breakdown:"))
         lab.setObjectName("small")
         prow.addWidget(lab)
         prow.addWidget(self.period_box)

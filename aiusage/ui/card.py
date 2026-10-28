@@ -9,6 +9,7 @@ from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QHeaderView, QLabel, QSizePolicy,
                                QTableWidget, QTableWidgetItem, QToolTip, QVBoxLayout, QWidget)
 
+from ..i18n import tr, tr_label
 from ..model import ProviderSnapshot, State
 from . import format as fmt
 from .theme import PROVIDER_COLORS, Palette
@@ -65,7 +66,8 @@ class DailyChart(QWidget):
     def set_days(self, days: list):
         self.days = days or []
         peak = max((d[1] for d in self.days), default=0)
-        self.setToolTip(f"Daily recorded tokens (local), last {len(self.days)} days · peak {fmt.tokens(peak)}")
+        self.setToolTip(tr("Daily recorded tokens (local), last {n} days · peak {peak}").format(
+            n=len(self.days), peak=fmt.tokens(peak)))
         self.update()
 
     def _slot(self, x: float) -> int | None:
@@ -78,7 +80,8 @@ class DailyChart(QWidget):
         i = self._slot(e.position().x())
         if i is not None:
             day, total = self.days[i]
-            QToolTip.showText(e.globalPosition().toPoint(), f"{day}: {fmt.tokens(total)} tokens ({total:,})", self)
+            text = tr("{day}: {short} tokens ({full})").format(day=day, short=fmt.tokens(total), full=f"{total:,}")
+            QToolTip.showText(e.globalPosition().toPoint(), text, self)
 
     def paintEvent(self, _e):
         if not self.days:
@@ -111,7 +114,7 @@ class Pill(QLabel):
         p = self.palette_
         color = {State.OK: p.ok, State.STALE: p.warn, State.RATE_LIMITED: p.warn,
                  State.NOT_AUTHENTICATED: p.bad, State.PENDING: p.info}.get(state, p.muted)
-        self.setText(text or fmt.STATE_TEXT[state])
+        self.setText(text or fmt.state_text(state))
         c = QColor(color)
         self.setStyleSheet(
             f"color: {color}; background: rgba({c.red()},{c.green()},{c.blue()},38);"
@@ -119,7 +122,7 @@ class Pill(QLabel):
 
 
 def _section(text: str) -> QLabel:
-    lab = QLabel(text.upper())
+    lab = QLabel(tr(text).upper())
     lab.setObjectName("section")
     return lab
 
@@ -186,7 +189,7 @@ class ProviderCard(QFrame):
             v = QLabel("–")
             v.setObjectName("big")
             col.addWidget(v)
-            col.addWidget(_small(PERIOD_LABELS[key]))
+            col.addWidget(_small(tr(PERIOD_LABELS[key])))
             row.addLayout(col)
             self.local_vals[key] = v
         row.addStretch(1)
@@ -201,7 +204,7 @@ class ProviderCard(QFrame):
         lay.addWidget(self.chart_label)
 
         self.table = QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels(["Model", "Input", "Output", "Cache r/w", "Total"])
+        self.table.setHorizontalHeaderLabels([tr(h) for h in ("Model", "Input", "Output", "Cache r/w", "Total")])
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionMode(QTableWidget.NoSelection)
@@ -253,7 +256,7 @@ class ProviderCard(QFrame):
             w.setVisible(not collapsed)
         if collapsed:
             self.pill.set_state(st)
-            self.footer.setText(text)
+            self.footer.setText(tr(text))
             return
         self.quota_title.show()
         self.local_title.show()
@@ -264,7 +267,7 @@ class ProviderCard(QFrame):
         elif State.STALE in (q.state, loc.state):
             self.pill.set_state(State.STALE)
         elif loc.state == State.OK:
-            self.pill.set_state(State.OK, "Local only")
+            self.pill.set_state(State.OK, tr("Local only"))
         else:
             self.pill.set_state(loc.state if loc.state != State.OK else q.state)
 
@@ -275,10 +278,10 @@ class ProviderCard(QFrame):
         if has_windows:
             stale = q.state == State.STALE
             for row, w in enumerate(q.windows):
-                label = QLabel(w.label)
+                label = QLabel(tr_label(w.label))
                 bar = Bar(self.palette_)
                 bar.set(w.used_percent, stale or (w.resets_at is not None and w.resets_at <= now))
-                pct = QLabel(f"{w.used_percent:.0f}%")
+                pct = QLabel(fmt.pct(w.used_percent))
                 pct.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 pct.setMinimumWidth(36)
                 reset = _small(fmt.resets(w.resets_at, now))
@@ -291,16 +294,19 @@ class ProviderCard(QFrame):
             self.quota_grid.setColumnStretch(1, 1)
         msg = []
         if q.state == State.STALE:
-            msg.append(f"Stale (last updated {fmt.age(q.updated_at, now)}): {q.detail}")
+            msg.append(tr("Stale (last updated {age}): {detail}").format(age=fmt.age(q.updated_at, now),
+                                                                          detail=tr(q.detail)))
         elif q.state != State.OK:
-            msg.append(f"{fmt.STATE_TEXT[q.state]}" + (f" — {q.detail}" if q.detail else ""))
+            msg.append(fmt.state_text(q.state) + (f" — {tr(q.detail)}" if q.detail else ""))
         elif self.expanded and q.source:
-            msg.append(f"Source: {q.source}" + ("" if q.documented else " — may change without notice"))
+            msg.append(tr("Source: {source}").format(source=tr(q.source))
+                       + ("" if q.documented else tr(" — may change without notice")))
         self.quota_msg.setText("  ".join(msg))
         self.quota_msg.setVisible(bool(msg))
         rows = q.extra.get("weekly_breakdown") if q.extra else None
         if self.expanded and rows and has_windows:
-            self.breakdown.setText("Weekly share: " + " · ".join(f"{r['label']} {r['percent']:.0f}%" for r in rows))
+            self.breakdown.setText(tr("Weekly share: ") + " · ".join(
+                f"{tr(r['label'])} {fmt.pct(r['percent'])}" for r in rows))
             self.breakdown.show()
         else:
             self.breakdown.hide()
@@ -315,11 +321,12 @@ class ProviderCard(QFrame):
                 lab.setToolTip(self._tooltip(per) if per else "")
         lm = []
         if loc.state == State.STALE:
-            lm.append(f"Stale (last updated {fmt.age(loc.updated_at, now)}): {loc.detail}")
+            lm.append(tr("Stale (last updated {age}): {detail}").format(age=fmt.age(loc.updated_at, now),
+                                                                         detail=tr(loc.detail)))
         elif loc.state != State.OK:
-            lm.append(fmt.STATE_TEXT[loc.state] + (f" — {loc.detail}" if loc.detail else ""))
+            lm.append(fmt.state_text(loc.state) + (f" — {tr(loc.detail)}" if loc.detail else ""))
         elif loc.detail:
-            lm.append(loc.detail)
+            lm.append(tr(loc.detail))
         self.local_msg.setText("  ".join(lm))
         self.local_msg.setVisible(bool(lm))
 
@@ -329,21 +336,26 @@ class ProviderCard(QFrame):
         if show_chart:
             self.chart.palette_ = self.palette_
             self.chart.set_days(loc.daily)
-            self.chart_label.setText(f"Daily recorded tokens, last {len(loc.daily)} days "
-                                     f"({loc.daily[0][0][5:]} → today) · hover for values")
+            self.chart_label.setText(tr("Daily recorded tokens, last {n} days ({start} → today) · hover for values")
+                                     .format(n=len(loc.daily), start=loc.daily[0][0][5:]))
         self._fill_table(loc if has_local and self.expanded else None)
         foot = [fmt.updated(loc.updated_at, now)]
         if has_local and self.expanded:
-            foot.append(f"{loc.files} files · {'exact counts from local records' if loc.exact else 'estimated'}")
+            foot.append(tr("{n} files").format(n=loc.files) + " · "
+                        + tr("exact counts from local records" if loc.exact else "estimated"))
         self.footer.setText(" · ".join(foot))
 
     @staticmethod
     def _tooltip(per) -> str:
         t = per.total
-        return (f"{per.label}: {per.events} responses\n"
-                f"input {t.input:,}\noutput {t.output:,} (reasoning {t.reasoning:,})\n"
-                f"cache read {t.cache_read:,}\ncache write {t.cache_write:,}\n"
-                "Recorded in local logs; not account quota.")
+        return "\n".join([
+            tr("{label}: {n} responses").format(label=tr(per.label), n=per.events),
+            tr("input {v}").format(v=f"{t.input:,}"),
+            tr("output {v} (reasoning {r})").format(v=f"{t.output:,}", r=f"{t.reasoning:,}"),
+            tr("cache read {v}").format(v=f"{t.cache_read:,}"),
+            tr("cache write {v}").format(v=f"{t.cache_write:,}"),
+            tr("Recorded in local logs; not account quota."),
+        ])
 
     def _fill_table(self, loc):
         if loc is None:
@@ -353,7 +365,8 @@ class ProviderCard(QFrame):
         models = sorted(per.by_model.items(), key=lambda kv: kv[1].total, reverse=True) if per else []
         self.table.setRowCount(len(models) or 1)
         if not models:
-            self.table.setItem(0, 0, QTableWidgetItem(f"No recorded usage ({PERIOD_LABELS[self.period]})"))
+            self.table.setItem(0, 0, QTableWidgetItem(
+                tr("No recorded usage ({period})").format(period=tr(PERIOD_LABELS[self.period]))))
             for c in range(1, 5):
                 self.table.setItem(0, c, QTableWidgetItem(""))
         for r, (model, t) in enumerate(models):
