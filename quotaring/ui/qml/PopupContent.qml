@@ -318,7 +318,7 @@ Item {
         }
         function sweep() { ring.sweep(); }
 
-        // Press and hold, then drag, to move the card; the order is saved on release.
+        // Dragged to a new place; the order is saved on release.
         readonly property int slot: Math.max(0, popup.cardOrder.indexOf(modelData.id))
         property bool dragging: false
         property point grab  // where the card was taken, inside it
@@ -352,24 +352,27 @@ Item {
             Behavior on y { enabled: !card.dragging; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
         }
 
-        // Handlers on the card itself see presses on its rows and ring too, without taking them.
-        TapHandler {
-            id: hold
-            longPressThreshold: 0.45
-            onLongPressed: {
-                card.grab = hold.point.position;
-                card.ptr = card.mapToItem(grid, hold.point.position.x, hold.point.position.y);
-                popup.dragOrder = popup.cardOrder.slice();
-                card.dragging = true;
+        // Press and drag anywhere on the card, rows included, to move it. The low threshold and
+        // the grab it keeps let the card win over the page's scrolling; a click (no movement)
+        // still reaches the rows.
+        DragHandler {
+            id: mover
+            target: null
+            dragThreshold: 4
+            grabPermissions: PointerHandler.CanTakeOverFromAnything
+            onActiveChanged: {
+                if (active) {
+                    card.grab = centroid.pressPosition;
+                    card.ptr = card.mapToItem(grid, centroid.pressPosition.x, centroid.pressPosition.y);
+                    popup.dragOrder = popup.cardOrder.slice();
+                    card.dragging = true;
+                } else {
+                    card.drop();
+                }
             }
-        }
-        PointHandler {
-            id: tracker
-            acceptedButtons: Qt.LeftButton
-            onActiveChanged: if (!active) card.drop()
-            onPointChanged: {
+            onCentroidChanged: {
                 if (!card.dragging) return;
-                card.ptr = grid.mapFromItem(null, point.scenePosition.x, point.scenePosition.y);
+                card.ptr = grid.mapFromItem(null, centroid.scenePosition.x, centroid.scenePosition.y);
                 // The card whose place is under the pointer (by layout, not by where the dragged
                 // card is drawn: it is always under the pointer itself).
                 for (const other of grid.children) {
@@ -498,8 +501,7 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onHoveredChanged: card.rowHover = hovered ? row.index : (card.rowHover === row.index ? -1 : card.rowHover)
                     }
-                    // Held as long as it takes to lift the card, it is not a click.
-                    TapHandler { longPressThreshold: 0.45; onTapped: backend.pin(card.modelData.id, row.modelData.label) }
+                    TapHandler { onTapped: backend.pin(card.modelData.id, row.modelData.label) }
                     ColumnLayout {
                         id: rowCol
                         anchors.fill: parent

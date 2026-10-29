@@ -282,7 +282,7 @@ def test_card_order_is_saved_and_cleaned(app, settings, tmp_path):
     assert settings_mod.load(p).card_order == []
 
 
-def test_cards_reorder_by_press_hold_and_drag(app, settings, qml_errors):
+def test_cards_reorder_by_dragging(app, settings, qml_errors):
     from PySide6.QtCore import QPoint, Qt
     from PySide6.QtTest import QTest
     backend, popup = popup_for(settings)
@@ -293,6 +293,7 @@ def test_cards_reorder_by_press_hold_and_drag(app, settings, qml_errors):
         snaps.append(ProviderSnapshot(pid, name, s.local, s.quota))
     backend.set_view(viewmodel.widget_view(snaps, NOW))
     settle(app)
+    w = popup.window
 
     def walk(item):
         yield item
@@ -300,7 +301,7 @@ def test_cards_reorder_by_press_hold_and_drag(app, settings, qml_errors):
             yield from walk(c)
 
     def cards():  # slot -> card
-        return {c.property("slot"): c for c in walk(popup.window.contentItem()) if c.objectName() == "providerCard"}
+        return {c.property("slot"): c for c in walk(w.contentItem()) if c.objectName() == "providerCard"}
 
     def at(item, fx, fy):
         p = item.mapToScene(item.boundingRect().topLeft())
@@ -312,26 +313,32 @@ def test_cards_reorder_by_press_hold_and_drag(app, settings, qml_errors):
             app.processEvents()
             time.sleep(0.01)
 
-    first, third = cards()[0], cards()[2]
-    w = popup.window
-    # A plain click does not move anything.
-    QTest.mouseClick(w, Qt.LeftButton, Qt.NoModifier, at(first, 0.03, 0.02))
+    def drag(card, onto, hold_ms=0, click_first=False):
+        start, target = at(card, 0.3, 0.9), at(onto, 0.5, 0.5)  # from a row: rows have handlers too
+        if click_first:  # touchpad-style double tap and drag
+            QTest.mouseClick(w, Qt.LeftButton, Qt.NoModifier, start)
+            wait(30)
+        QTest.mousePress(w, Qt.LeftButton, Qt.NoModifier, start)
+        wait(hold_ms or 10)
+        assert card.property("dragging") is False  # nothing moves before the pointer does
+        for i in range(1, 9):
+            QTest.mouseMove(w, target * i / 8 + start * (8 - i) / 8)
+            wait(15)
+        assert card.property("dragging") is True
+        QTest.mouseRelease(w, Qt.LeftButton, Qt.NoModifier, target)
+        wait(50)
+        assert card.property("dragging") is False
+
+    # A plain click moves nothing.
+    QTest.mouseClick(w, Qt.LeftButton, Qt.NoModifier, at(cards()[0], 0.03, 0.02))
     wait(50)
     assert settings.card_order == []
-    # Press and hold on a row of the first card (rows have handlers of their own), drag it onto
-    # the third, let go.
-    start = at(first, 0.3, 0.9)
-    QTest.mousePress(w, Qt.LeftButton, Qt.NoModifier, start)
-    wait(700)
-    assert first.property("dragging") is True
-    target = at(third, 0.5, 0.5)
-    for i in range(1, 6):
-        QTest.mouseMove(w, target * i / 5 + start * (5 - i) / 5)
-        wait(20)
-    QTest.mouseRelease(w, Qt.LeftButton, Qt.NoModifier, target)
-    wait(50)
-    assert first.property("dragging") is False
+    drag(cards()[0], cards()[2], hold_ms=700)  # press, hold, drag
     assert settings.card_order == ["codex", "antigravity", "claude"]
-    assert settings.pinned == {}  # holding a row to drag is not a click on it
+    assert settings.pinned == {}  # dragging from a row is not a click on it
+    drag(cards()[2], cards()[0])  # press and drag right away
+    assert settings.card_order == ["claude", "codex", "antigravity"]
+    drag(cards()[1], cards()[0], click_first=True)
+    assert settings.card_order[0] == "codex"
     assert {s: c.property("slot") for s, c in cards().items()} == {0: 0, 1: 1, 2: 2}
     assert qml_errors == []
