@@ -23,7 +23,12 @@ class Settings:
     show_remaining: bool = True  # limits as what is left (else as what is used)
     pinned: dict = field(default_factory=dict)  # provider id -> limit label shown on its ring
     card_order: list = field(default_factory=list)  # provider ids as arranged in the popup
-    notify_threshold: int = 90  # percent; 0 disables quota notifications
+    notify_enabled: bool = True  # master switch for quota notifications
+    notify_levels: list = field(default_factory=lambda: [90])  # percent used that warns, once per window each
+    notify_limit_reached: bool = True  # a limit is full
+    notify_reset: bool = False  # a full limit has reset
+    notify_providers: dict = field(default_factory=lambda: {p: True for p in PROVIDER_IDS})
+    notify_snooze_until: float = 0.0  # epoch seconds; notifications are held back until then
     update_prices: bool = True  # download the API price list weekly (Tokens page estimate)
     providers_enabled: dict = field(default_factory=lambda: {p: True for p in PROVIDER_IDS})
     quota_enabled: dict = field(default_factory=lambda: {p: True for p in PROVIDER_IDS})
@@ -34,7 +39,10 @@ class Settings:
         self.local_refresh_seconds = max(15, min(3600, int(self.local_refresh_seconds)))
         self.quota_refresh_seconds = max(60, min(86400, int(self.quota_refresh_seconds)))
         self.timeout_seconds = max(5, min(120, int(self.timeout_seconds)))
-        self.notify_threshold = max(0, min(100, int(self.notify_threshold)))
+        levels = self.notify_levels if isinstance(self.notify_levels, list) else []
+        self.notify_levels = sorted({int(n) for n in levels
+                                     if isinstance(n, (int, float)) and not isinstance(n, bool) and 0 < n <= 100})
+        self.notify_snooze_until = max(0.0, float(self.notify_snooze_until))
         if self.language not in ("system", "en", "tr"):
             self.language = "system"
         if self.theme not in ("system", "light", "dark"):
@@ -44,7 +52,7 @@ class Settings:
         self.pinned = {k: v for k, v in self.pinned.items() if k in PROVIDER_IDS and isinstance(v, str)}
         order = self.card_order if isinstance(self.card_order, list) else []
         self.card_order = [p for i, p in enumerate(order) if p in PROVIDER_IDS and p not in order[:i]]
-        for d in (self.providers_enabled, self.quota_enabled):
+        for d in (self.providers_enabled, self.quota_enabled, self.notify_providers):
             for p in PROVIDER_IDS:
                 d[p] = bool(d.get(p, True))
         return self
@@ -72,10 +80,19 @@ def load(path: Path | None = None) -> Settings:
         elif isinstance(default, bool):
             if isinstance(v, bool):
                 setattr(s, k, v)
+        elif isinstance(default, list):
+            if isinstance(v, list):
+                setattr(s, k, list(v))
         elif isinstance(default, (int, float)) and isinstance(v, (int, float)):
             setattr(s, k, type(default)(v))
         elif isinstance(default, str) and isinstance(v, str):
             setattr(s, k, v)
+    # older settings files: a single threshold, 0 meaning off
+    old = raw.get("notify_threshold")
+    if "notify_levels" not in raw and isinstance(old, int) and not isinstance(old, bool):
+        s.notify_enabled = old > 0
+        if old > 0:
+            s.notify_levels = [old]
     return s.clamp()
 
 

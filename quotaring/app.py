@@ -123,6 +123,7 @@ class Controller(QObject):
         self.backend.settingsRequested.connect(self.open_settings)
         self.backend.hideRequested.connect(self.hide_popup)
         self.backend.quitRequested.connect(self.quit)
+        self.backend.testNotificationRequested.connect(self.test_notification)
         self.backend.prefsSaved.connect(self.save_settings)
         self.backend.settingsSaved.connect(self.apply_settings)
         self.backend.prefsChanged.connect(self.update_view)  # the tray ring follows used/left
@@ -171,11 +172,51 @@ class Controller(QObject):
             act = QAction(text, menu)
             act.triggered.connect(fn)
             menu.addAction(act)
+        menu.addMenu(self._notify_menu(menu))
         menu.addSeparator()
         quit_act = QAction(tr("Quit") + "\tCtrl+Q", menu)
         quit_act.triggered.connect(self.quit)
         menu.addAction(quit_act)
         return menu
+
+    def _notify_menu(self, parent: QMenu) -> QMenu:
+        """On / off and a temporary mute, without opening the settings."""
+        sub = QMenu(tr("Notifications"), parent)
+        sub.aboutToShow.connect(lambda: self._fill_notify_menu(sub))
+        self._fill_notify_menu(sub)
+        return sub
+
+    def _fill_notify_menu(self, sub: QMenu):
+        sub.clear()
+        s = self.settings
+        on = QAction(tr("Notifications on"), sub)
+        on.setCheckable(True)
+        on.setChecked(s.notify_enabled)
+        on.toggled.connect(lambda v: self._set_notify(notify_enabled=v))
+        sub.addAction(on)
+        sub.addSeparator()
+        now = time.time()
+        if s.notify_snooze_until > now:
+            info = QAction(tr("Muted until {t}").format(t=time.strftime("%H:%M", time.localtime(s.notify_snooze_until))), sub)
+            info.setEnabled(False)
+            sub.addAction(info)
+            resume = QAction(tr("Resume notifications"), sub)
+            resume.triggered.connect(lambda: self._set_notify(notify_snooze_until=0.0))
+            sub.addAction(resume)
+        else:
+            y, m, d = time.localtime(now)[:3]
+            tomorrow = time.mktime((y, m, d + 1, 0, 0, 0, 0, 0, -1))  # local midnight; mktime normalises the day
+            for text, until in ((tr("Mute for 1 hour"), now + 3600), (tr("Mute until tomorrow"), tomorrow)):
+                act = QAction(text, sub)
+                act.setEnabled(s.notify_enabled)
+                act.triggered.connect(lambda _=False, u=until: self._set_notify(notify_snooze_until=u))
+                sub.addAction(act)
+
+    def _set_notify(self, **changes):
+        for k, v in changes.items():
+            setattr(self.settings, k, v)
+        self.save_settings()
+        self.backend.set_settings_form(settings_form.form(self.settings, autostart.supported(), self.tray is not None))
 
     # -- refresh --------------------------------------------------------
     def apply_intervals(self):
@@ -227,15 +268,31 @@ class Controller(QObject):
         return theme.with_accent(theme.DARK if theme.system_is_dark() else theme.LIGHT, self.settings.accent)
 
     def _maybe_notify(self, snap):
-        if self.tray is None:
+        s = self.settings
+        if self.tray is None or not s.notify_enabled or not s.notify_providers.get(snap.provider_id, True):
             return
-        for a in self.seen_alerts.take_new(alerts.pending([snap], self.settings.notify_threshold, time.time())):
-            # The limit itself as the icon: a ring with what is left, amber or red like the tray.
-            left = max(0.0, 100 - a["used"])
-            ring = {"available": True, "used": round(a["used"]), "remaining": round(left), "limited": a["limited"],
-                    "level": "bad" if a["limited"] or left <= 10 else "warn" if left <= 30 else "ok"}
-            icon = make_ring_icon(ring, self.settings.show_remaining, self._panel_palette())
-            self.tray.showMessage(a["title"], a["body"], icon, 10000)
+        now = time.time()
+        found = alerts.pending([snap], s.notify_levels, now, limit_reached=s.notify_limit_reached,
+                               reset=s.notify_reset)
+        # Muted: still recorded as shown, so they do not all arrive at once when the mute ends.
+        new = self.seen_alerts.take_new(found, now)
+        if s.notify_snooze_until > now:
+            return
+        for a in new:
+            self._show_alert(a)
+
+    def _show_alert(self, a: dict):
+        # The limit itself as the icon: a ring with what is left, amber or red like the tray.
+        left = max(0.0, 100 - a["used"])
+        ring = {"available": True, "used": round(a["used"]), "remaining": round(left), "limited": a["limited"],
+                "level": "bad" if a["limited"] or left <= 10 else "warn" if left <= 30 else "ok"}
+        icon = make_ring_icon(ring, self.settings.show_remaining, self._panel_palette())
+        self.tray.showMessage(a["title"], a["body"], icon, 10000)
+
+    def test_notification(self):
+        if self.tray is not None:
+            self._show_alert({"title": tr("Test notification"), "body": tr("Notifications will look like this."),
+                              "used": 75.0, "limited": False})
 
     # -- popup / settings -----------------------------------------------
     def apply_theme(self):
@@ -246,7 +303,7 @@ class Controller(QObject):
         self.update_view()
 
     def open_settings(self):
-        self.backend.set_settings_form(settings_form.form(self.settings, autostart.supported()))
+        self.backend.set_settings_form(settings_form.form(self.settings, autostart.supported(), self.tray is not None))
         self.popup.open_settings()
 
     def _data_settings(self) -> tuple:
@@ -282,7 +339,7 @@ class Controller(QObject):
         if self.tray is not None:
             self._menu = self._build_menu()
             self.tray.setContextMenu(self._menu)
-        self.backend.set_settings_form(settings_form.form(self.settings, autostart.supported()))
+        self.backend.set_settings_form(settings_form.form(self.settings, autostart.supported(), self.tray is not None))
         self.update_view()
 
     def save_settings(self):

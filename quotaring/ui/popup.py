@@ -87,6 +87,7 @@ class Backend(QObject):
     hideRequested = Signal()
     focusLostRequested = Signal()
     quitRequested = Signal()
+    testNotificationRequested = Signal()
     prefsSaved = Signal()
     settingsFormChanged = Signal()
     settingsSaved = Signal("QVariantMap")
@@ -112,6 +113,10 @@ class Backend(QObject):
     @Slot("QVariantMap")
     def saveSettings(self, values):
         self.settingsSaved.emit(values)
+
+    @Slot()
+    def testNotification(self):
+        self.testNotificationRequested.emit()
 
     def set_view(self, view: dict):
         self._view = view

@@ -170,8 +170,15 @@ def test_settings_page_renders_and_saves(app, settings, qml_errors):
     assert win.isVisible() and not popup.window.grabWindow().isNull()
     draft = win.property("draft").toVariant()
     assert draft["theme"] == settings.theme  # the draft starts from the current settings
+    # Toggling notifications from the tray menu while Settings is open updates the open draft too.
+    settings.notify_enabled = False
+    backend.set_settings_form(settings_form.form(settings, True))
+    settle(app)
+    draft = win.property("draft").toVariant()
+    assert draft["notify_enabled"] is False
     backend.saveSettings(dict(draft, theme="dark", enabled_codex=False))
     assert saved and saved[0]["theme"] == "dark" and saved[0]["enabled_codex"] is False
+    assert saved[0]["notify_enabled"] is False
     assert qml_errors == []
 
 
@@ -187,6 +194,24 @@ def test_settings_form_round_trip(settings):
     assert settings.theme == "dark" and settings.quota_enabled["codex"] is False
     assert settings.quota_enabled["antigravity"] is False
     assert settings.claude_command == "claude"
+    assert f["values"]["notify_levels"] == [90] and f["values"]["notify_codex"] is True
+    settings_form.apply(settings, {"notify_levels": [95, 50, 50, 300], "notify_codex": False,
+                                   "notify_enabled": False, "notify_reset": True})
+    assert settings.notify_levels == [50, 95] and settings.notify_providers["codex"] is False
+    assert settings.notify_enabled is False and settings.notify_reset is True
+
+
+def test_old_notify_threshold_is_migrated(tmp_path):
+    import json
+    from quotaring import settings as settings_mod
+    p = tmp_path / "s.json"
+    p.write_text(json.dumps({"notify_threshold": 0}))
+    assert settings_mod.load(p).notify_enabled is False
+    p.write_text(json.dumps({"notify_threshold": 80, "card_order": ["codex"]}))
+    s = settings_mod.load(p)
+    assert s.notify_enabled and s.notify_levels == [80] and s.card_order == ["codex"]
+    settings_mod.save(s, p)
+    assert settings_mod.load(p).notify_levels == [80]
 
 
 def test_pin_keeps_a_limit_on_the_ring(app, settings, qml_errors):

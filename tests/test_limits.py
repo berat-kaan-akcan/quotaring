@@ -153,8 +153,52 @@ def test_alerts_once_per_window_and_shared(tmp_path):
     assert second.take_new(alerts.pending([snap], 90, NOW), NOW) == []
     stale = ProviderSnapshot("claude", "Claude Code", LocalUsage(State.OK), Quota(State.STALE, [lim, hi]))
     assert [a["key"].endswith("|limit") for a in alerts.pending([stale], 90, NOW)] == [True]
-    assert alerts.pending([snap], 0, NOW) == []  # notifications switched off
+    assert [a["key"] for a in alerts.pending([snap], [], NOW)] == ["claude|five_hour|limit"]  # no levels
+    assert alerts.pending([snap], [], NOW, limit_reached=False) == []
     # after the reset a new window can alert again; expired keys are pruned
     nxt = QuotaWindow("five_hour", "5-hour session", 100.0, NOW + 18600, 300, limited=True)
     snap2 = ProviderSnapshot("claude", "Claude Code", LocalUsage(State.OK), Quota(State.OK, [nxt]))
     assert len(first.take_new(alerts.pending([snap2], 90, NOW + 700), NOW + 700)) == 1
+
+
+def test_alerts_ignore_jitter_in_the_reset_time(tmp_path):
+    """Providers report the reset time slightly differently on every poll: still one notification."""
+    from quotaring import alerts
+    seen = alerts.Seen(tmp_path / "n.json")
+    shown = 0
+    for i, jitter in enumerate((0.0, 0.05, -0.4, 0.46, 3.0)):
+        w = QuotaWindow("five_hour", "5-hour session", 93.0, NOW + 3600 + jitter, 300)
+        snap = ProviderSnapshot("claude", "Claude Code", LocalUsage(State.OK), Quota(State.OK, [w]))
+        shown += len(seen.take_new(alerts.pending([snap], [90], NOW + i * 60), NOW + i * 60))
+    assert shown == 1
+
+
+def test_alert_levels_escalate_once_each(tmp_path):
+    from quotaring import alerts
+    seen = alerts.Seen(tmp_path / "n.json")
+
+    def at(pct):
+        w = QuotaWindow("seven_day", "Weekly", pct, NOW + 9e5, 10080)
+        snap = ProviderSnapshot("codex", "Codex", LocalUsage(State.OK), Quota(State.OK, [w]))
+        return [a["key"] for a in seen.take_new(alerts.pending([snap], [50, 80, 95], NOW), NOW)]
+
+    assert at(40) == []
+    assert at(85) == ["codex|seven_day|80"]  # 50 is passed over: only the highest level reached
+    assert at(86) == [] and at(60) == []
+    assert at(97) == ["codex|seven_day|95"]
+    assert at(99) == []
+
+
+def test_alert_after_reset_and_old_file_is_kept(tmp_path):
+    from quotaring import alerts
+    import json
+    (tmp_path / "notified-v1.json").write_text(json.dumps({f"claude|five_hour|{NOW + 600}|limit": NOW + 600}))
+    seen = alerts.Seen(tmp_path / "notified-v2.json")
+    lim = QuotaWindow("five_hour", "5-hour session", 100.0, NOW + 600, 300, limited=True)
+    snap = ProviderSnapshot("claude", "Claude Code", LocalUsage(State.OK), Quota(State.OK, [lim]))
+    assert seen.take_new(alerts.pending([snap], [90], NOW), NOW) == []  # shown before the upgrade
+    i18n.set_language("en")
+    later = alerts.pending([snap], [90], NOW + 700, reset=True)
+    assert [a["title"] for a in later] == ["Claude Code · 5-hour limit reset"]
+    assert alerts.pending([snap], [90], NOW + 700) == []  # off by default
+    assert alerts.pending([snap], [90], NOW + 600 + 3 * 3600, reset=True) == []  # long ago: not news

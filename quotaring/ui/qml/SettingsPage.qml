@@ -13,9 +13,14 @@ ColumnLayout {
     property var draft: ({})
     spacing: 12
 
-    // The page is built each time it opens: start from the current settings, and save a
-    // pending change when it closes.
+    // The page is built each time it opens: start from the current settings, follow tray-menu
+    // changes while open, and save a pending change when it closes.
     Component.onCompleted: draft = Object.assign({}, f.values || {})
+    onFChanged: {
+        if (!f.values) return;
+        draft = applyTimer.running ? Object.assign({}, draft, { notify_enabled: f.values.notify_enabled })
+                                   : Object.assign({}, f.values);
+    }
     Component.onDestruction: flush()
     // Changes apply as they are made. Typed paths wait for a pause so a half-typed one is never used.
     function set(key, value, typed) {
@@ -77,14 +82,97 @@ ColumnLayout {
             hint: win.t.pricesHint
             Toggle { checked: !!win.draft.update_prices; onToggled: v => win.set("update_prices", v) }
         }
+    }
+
+    // What to be told about, and for which providers. Every alert appears once per limit window.
+    Section {
+        id: notifySec
+        title: win.t.notifications
+        readonly property bool on: !!win.draft.notify_enabled && win.f.notifySupported !== false
+        function hasLevel(n) { return (win.draft.notify_levels || []).indexOf(n) >= 0; }
+        function toggleLevel(n) {
+            const cur = (win.draft.notify_levels || []).filter(x => x !== n);
+            if (!hasLevel(n))
+                cur.push(n);
+            win.set("notify_levels", cur.sort((a, b) => a - b));
+        }
         Row2 {
-            label: win.t.notify
-            Segmented {
-                options: [["0", win.t.off || ""]].concat([80, 90, 95].map(
-                    n => [String(n), (win.t.pct || "{n}%").replace("{n}", n)]))
-                value: String(win.draft.notify_threshold || 0)
-                onPicked: v => win.set("notify_threshold", parseInt(v))
+            label: win.t.notifyEnabled
+            hint: win.f.notifySupported === false ? (win.t.notifyNoTray || "") : (win.t.notifyEnabledHint || "")
+            enabled: win.f.notifySupported !== false
+            Toggle { checked: !!win.draft.notify_enabled; onToggled: v => win.set("notify_enabled", v) }
+        }
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 6
+            enabled: notifySec.on
+            opacity: enabled ? 1 : 0.45
+            Text { Layout.fillWidth: true; text: win.t.notifyLevels || ""; color: win.c.text; font.pointSize: 10; wrapMode: Text.WordWrap }
+            Flow {
+                Layout.fillWidth: true
+                spacing: 6
+                Repeater {
+                    model: win.f.notifyLevels || []
+                    delegate: Chip {
+                        required property var modelData
+                        text: (win.t.pct || "{n}%").replace("{n}", modelData)
+                        checked: notifySec.hasLevel(modelData)
+                        onToggled: notifySec.toggleLevel(modelData)
+                    }
+                }
             }
+            Text { Layout.fillWidth: true; text: win.t.notifyLevelsHint || ""; color: win.c.muted; font.pointSize: 8; wrapMode: Text.WordWrap }
+        }
+        Row2 {
+            label: win.t.notifyLimit
+            enabled: notifySec.on
+            Toggle { checked: !!win.draft.notify_limit_reached; onToggled: v => win.set("notify_limit_reached", v) }
+        }
+        Row2 {
+            label: win.t.notifyReset
+            enabled: notifySec.on
+            Toggle { checked: !!win.draft.notify_reset; onToggled: v => win.set("notify_reset", v) }
+        }
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 6
+            enabled: notifySec.on
+            opacity: enabled ? 1 : 0.45
+            Text { Layout.fillWidth: true; text: win.t.notifyProviders || ""; color: win.c.text; font.pointSize: 10 }
+            Flow {
+                Layout.fillWidth: true
+                spacing: 6
+                Repeater {
+                    model: win.f.providers || []
+                    delegate: Chip {
+                        required property var modelData
+                        text: modelData.name
+                        tone: modelData.color
+                        checked: !!win.draft["notify_" + modelData.id]
+                        onToggled: win.set("notify_" + modelData.id, !checked)
+                    }
+                }
+            }
+        }
+        Rectangle {
+            id: testBtn
+            enabled: notifySec.on
+            opacity: enabled ? 1 : 0.45
+            implicitWidth: testText.implicitWidth + 24
+            implicitHeight: 30
+            radius: 8
+            color: testMouse.containsMouse ? win.c.track : "transparent"
+            border.color: win.c.border
+            Text { id: testText; anchors.centerIn: parent; text: win.t.notifyTest || ""; color: win.c.text; font.pointSize: 9 }
+            MouseArea {
+                id: testMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: backend.testNotification()
+            }
+            Accessible.role: Accessible.Button
+            Accessible.name: testText.text
         }
     }
 
@@ -301,6 +389,39 @@ ColumnLayout {
                 }
             }
         }
+    }
+
+    // A pill that is on or off; several can be on at once.
+    component Chip: Rectangle {
+        id: chip
+        property string text
+        property bool checked
+        property color tone: win.c.accent
+        signal toggled()
+        implicitWidth: chipText.implicitWidth + 24
+        implicitHeight: 28
+        radius: 14
+        color: checked ? Qt.alpha(tone, 0.18) : (chipMouse.containsMouse ? win.c.track : "transparent")
+        border.color: checked ? tone : win.c.border
+        Behavior on color { ColorAnimation { duration: 120 } }
+        Text {
+            id: chipText
+            anchors.centerIn: parent
+            text: (chip.checked ? "✓ " : "") + chip.text
+            color: chip.checked ? win.c.text : win.c.muted
+            font.pointSize: 9
+            font.weight: chip.checked ? Font.DemiBold : Font.Normal
+        }
+        MouseArea {
+            id: chipMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: chip.toggled()
+        }
+        Accessible.role: Accessible.CheckBox
+        Accessible.name: chip.text
+        Accessible.checked: checked
     }
 
     component Stepper: Rectangle {
