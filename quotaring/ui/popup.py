@@ -212,7 +212,6 @@ class Popup:
         self.window = self.engine.rootObjects()[-1]
         self._hidden_at = 0.0
         self._shown_at = 0.0
-        self.settings_window = None
         backend.focusLostRequested.connect(self.focus_lost)
         # Layer-shell: open above the clicked tray icon, located through KWin (see cursor_probe).
         self.probe = None
@@ -234,18 +233,13 @@ class Popup:
         return len(self.engine.rootObjects()) > before
 
     def open_settings(self):
-        """The settings window, loaded on first use into the same engine (it shares `backend`)."""
-        if self.settings_window is None:
-            before = len(self.engine.rootObjects())
-            self.engine.setInitialProperties({})
-            self.engine.load(QUrl.fromLocalFile(str(QML_DIR / "SettingsWindow.qml")))
-            if len(self.engine.rootObjects()) == before:
-                log.warning("could not load the settings window")
-                return
-            self.settings_window = self.engine.rootObjects()[-1]
-        self.settings_window.show()
-        self.settings_window.raise_()
-        self.settings_window.requestActivate()
+        """Show the popup on its Settings page."""
+        if not self.is_visible():
+            self.show()  # opens on Limits
+        self.content().setProperty("page", "settings")
+
+    def content(self):
+        return self.window.findChild(QObject, "popupContent")
 
     def is_visible(self) -> bool:
         return self.window.isVisible()

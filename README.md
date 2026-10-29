@@ -142,7 +142,7 @@ Saved as JSON in:
 - Linux: `$XDG_CONFIG_HOME/quotaring/settings.json` (default `~/.config/...`)
 - Windows: `%APPDATA%\QuotaRing\settings.json`
 
-<img src="docs/images/settings-dark.png" width="360" align="right" alt="Settings window, dark theme">
+<img src="docs/images/settings-dark.png" width="360" align="right" alt="Settings, dark theme">
 
 Open Settings from the gear in the popup or the tray menu. Every change applies as you make it,
 with no Save button and no restart, including the language (follows the system, Turkish or
@@ -230,7 +230,7 @@ The README images come from synthetic demo data: `.venv/bin/python docs/screensh
 Layout: `quotaring/model.py` (data types), `quotaring/providers/` (one module per provider behind
 `providers/base.py`), `quotaring/engine.py` (caching, stale handling, scheduling),
 `quotaring/viewmodel.py` (display-ready view for the popup), `quotaring/ui/`
-(tray popup and settings window: `popup.py`, `settings_form.py`, `qml/`), `packaging/` (PyInstaller spec, Linux/Arch/Windows packaging).
+(tray popup with its Limits, Tokens and Settings pages: `popup.py`, `settings_form.py`, `qml/`), `packaging/` (PyInstaller spec, Linux/Arch/Windows packaging).
 
 ## License
 

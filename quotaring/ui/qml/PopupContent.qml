@@ -3,17 +3,18 @@ import QtQuick.Controls.Basic  // own look on every OS; native styles ignore cus
 import QtQuick.Layouts
 import "Theme.js" as T
 
-// Two pages. Limits: a ring card per provider (outer ring 5 hours, inner ring weekly, in the
-// provider's colour) and a strip of locally recorded tokens; clicking the strip opens Tokens:
-// totals by period, API-price estimate, daily columns and a per-model breakdown.
-// Data: viewmodel.widget_view() as `backend.view`.
+// Three pages under one fixed header. Limits: a ring card per provider (outer ring 5 hours,
+// inner ring weekly, in the provider's colour) and a strip of locally recorded tokens; clicking
+// the strip opens Tokens: totals by period, API-price estimate, daily columns and a per-model
+// breakdown. The gear opens Settings. Data: viewmodel.widget_view() as `backend.view`.
 Item {
     id: popup
     objectName: "popupContent"
     readonly property var v: backend.view
     readonly property var c: backend.palette
     readonly property bool remaining: backend.prefs.showRemaining
-    property string page: "limits"  // "limits" | "tokens"
+    property string page: "limits"  // "limits" | "tokens" | "settings"
+    onPageChanged: flick.contentY = 0
     // Token strip: all providers together, or one picked from the chips above it.
     property string tokGroup: "all"
     property string tokPeriod: "7d"  // the Tokens page's period
@@ -23,7 +24,7 @@ Item {
         for (const g of (v ? v.tokens.groups : [])) if (g.key === tokGroup && g.color) return g.color;
         return c.accent;
     }
-    implicitHeight: body.implicitHeight + 28
+    implicitHeight: header.implicitHeight + body.spacing + pages.implicitHeight + 28
 
     // Slide up, fade in and sweep the rings each time the window is shown.
     function animateIn() {
@@ -59,10 +60,11 @@ Item {
             spacing: 12
 
             RowLayout {
+                id: header
                 Layout.fillWidth: true
                 spacing: 2
                 IconButton {
-                    visible: popup.page === "tokens"
+                    visible: popup.page !== "limits"
                     Layout.leftMargin: -6
                     c: popup.c
                     kind: "back"
@@ -71,7 +73,8 @@ Item {
                 }
                 Text {
                     Layout.fillWidth: true
-                    text: !popup.v ? "QuotaRing" : popup.page === "tokens" ? popup.v.text.tokenUsage : popup.v.labels.title
+                    text: !popup.v ? "QuotaRing" : popup.page === "tokens" ? popup.v.text.tokenUsage
+                        : popup.page === "settings" ? popup.v.labels.settings : popup.v.labels.title
                     color: popup.c.text
                     font.pointSize: 12
                     font.weight: Font.DemiBold
@@ -88,128 +91,158 @@ Item {
                     c: popup.c
                     kind: "settings"
                     tip: popup.v ? popup.v.labels.settings : "Settings"
-                    onClicked: backend.openSettings()
+                    onClicked: popup.page === "settings" ? popup.page = "limits" : backend.openSettings()
                 }
             }
 
-            Text {
-                visible: popup.page === "limits" && (!popup.v || popup.v.limits.length === 0)
+            // Pages scroll under the fixed header when they are taller than the screen allows.
+            Flickable {
+                id: flick
                 Layout.fillWidth: true
-                Layout.topMargin: 20
-                Layout.bottomMargin: 20
-                horizontalAlignment: Text.AlignHCenter
-                color: popup.c.muted
-                text: !popup.v ? (Qt.locale().name.startsWith("tr") ? "Yükleniyor…" : "Loading…") : popup.v.text.noLimits
-            }
-
-            GridLayout {
-                visible: popup.page === "limits"
-                Layout.fillWidth: true
-                columns: 2
-                columnSpacing: 10
-                rowSpacing: 10
-                Repeater {
-                    id: cards
-                    model: popup.v ? popup.v.limits : []
-                    delegate: ProviderCard {}
+                Layout.fillHeight: true
+                Layout.rightMargin: -10  // the scroll bar sits in the frame's margin
+                contentHeight: pages.implicitHeight
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                ScrollBar.vertical: ScrollBar {
+                    id: vbar
+                    policy: flick.contentHeight > flick.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                    contentItem: Rectangle { implicitWidth: 4; radius: 2; color: popup.c.muted; opacity: vbar.active ? 0.8 : 0.4 }
                 }
-            }
 
-            // Locally recorded tokens: today and 7 days, with the last 7 days as bars.
-            // Clicking it opens the Tokens page.
-            Rectangle {
-                visible: popup.page === "limits" && !!popup.tok
-                Layout.fillWidth: true
-                implicitHeight: stripBox.implicitHeight + 20
-                radius: 12
-                color: stripHover.hovered ? Qt.tint(popup.c.card, Qt.alpha(popup.c.track, 0.5)) : popup.c.card
-                border.color: popup.c.border
-                TapHandler { onTapped: popup.page = "tokens" }
                 ColumnLayout {
-                id: stripBox
-                anchors.fill: parent
-                anchors.margins: 10
-                spacing: 8
-                RowLayout {
-                    Layout.fillWidth: true
-                    // All / per-provider chips; hidden while only one provider has local data.
-                    GroupChips { visible: count > 2 }
-                    Item { Layout.fillWidth: true; implicitHeight: 1 }
+                    id: pages
+                    width: flick.width - 10
+                    spacing: 12
+
                     Text {
-                        text: (popup.v ? popup.v.text.details : "") + " ›"
-                        color: stripHover.hovered ? popup.c.text : popup.c.muted
-                        font.pointSize: 8.5
+                        visible: popup.page === "limits" && (!popup.v || popup.v.limits.length === 0)
+                        Layout.fillWidth: true
+                        Layout.topMargin: 20
+                        Layout.bottomMargin: 20
+                        horizontalAlignment: Text.AlignHCenter
+                        color: popup.c.muted
+                        text: !popup.v ? (Qt.locale().name.startsWith("tr") ? "Yükleniyor…" : "Loading…") : popup.v.text.noLimits
                     }
-                }
-                RowLayout {
-                    id: strip
-                    Layout.fillWidth: true
-                    spacing: 14
-                    Repeater {
-                        model: ["today", "7d"]
-                        delegate: Column {
-                            required property string modelData
+
+                    GridLayout {
+                        visible: popup.page === "limits"
+                        Layout.fillWidth: true
+                        columns: 2
+                        columnSpacing: 10
+                        rowSpacing: 10
+                        Repeater {
+                            id: cards
+                            model: popup.v ? popup.v.limits : []
+                            delegate: ProviderCard {}
+                        }
+                    }
+
+                    // Locally recorded tokens: today and 7 days, with the last 7 days as bars.
+                    // Clicking it opens the Tokens page.
+                    Rectangle {
+                        visible: popup.page === "limits" && !!popup.tok
+                        Layout.fillWidth: true
+                        implicitHeight: stripBox.implicitHeight + 20
+                        radius: 12
+                        color: stripHover.hovered ? Qt.tint(popup.c.card, Qt.alpha(popup.c.track, 0.5)) : popup.c.card
+                        border.color: popup.c.border
+                        TapHandler { onTapped: popup.page = "tokens" }
+                        ColumnLayout {
+                        id: stripBox
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        spacing: 8
+                        RowLayout {
+                            Layout.fillWidth: true
+                            // All / per-provider chips; hidden while only one provider has local data.
+                            GroupChips { visible: count > 2 }
+                            Item { Layout.fillWidth: true; implicitHeight: 1 }
                             Text {
-                                text: popup.tok ? popup.tok.periods[parent.modelData].totalText : ""
-                                color: popup.c.text
-                                font.pointSize: 13
-                                font.weight: Font.DemiBold
-                                font.features: { "tnum": 1 }
-                            }
-                            Text {
-                                text: popup.periodLabel(parent.modelData)
-                                color: popup.c.muted
+                                text: (popup.v ? popup.v.text.details : "") + " ›"
+                                color: stripHover.hovered ? popup.c.text : popup.c.muted
                                 font.pointSize: 8.5
                             }
                         }
-                    }
-                    Row {
-                        id: bars
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        spacing: 3
-                        readonly property var days: popup.tok ? popup.tok.daily : []
-                        Repeater {
-                            model: bars.days
-                            delegate: Item {
-                                id: day
-                                required property var modelData
-                                width: (bars.width - bars.spacing * (bars.days.length - 1)) / Math.max(1, bars.days.length)
-                                height: bars.height
-                                Rectangle {
-                                    anchors.bottom: parent.bottom
-                                    width: parent.width
-                                    radius: 2
-                                    height: Math.max(2, parent.height * day.modelData.ratio)
-                                    color: day.modelData.value > 0 ? (hover.containsMouse ? popup.c.text : popup.tokColor) : popup.c.track
-                                    Behavior on height { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+                        RowLayout {
+                            id: strip
+                            Layout.fillWidth: true
+                            spacing: 14
+                            Repeater {
+                                model: ["today", "7d"]
+                                delegate: Column {
+                                    required property string modelData
+                                    Text {
+                                        text: popup.tok ? popup.tok.periods[parent.modelData].totalText : ""
+                                        color: popup.c.text
+                                        font.pointSize: 13
+                                        font.weight: Font.DemiBold
+                                        font.features: { "tnum": 1 }
+                                    }
+                                    Text {
+                                        text: popup.periodLabel(parent.modelData)
+                                        color: popup.c.muted
+                                        font.pointSize: 8.5
+                                    }
                                 }
-                                MouseArea { id: hover; anchors.fill: parent; hoverEnabled: true }
-                                ToolTip.visible: hover.containsMouse
-                                ToolTip.text: day.modelData.label + ": " + day.modelData.text
+                            }
+                            Row {
+                                id: bars
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                spacing: 3
+                                readonly property var days: popup.tok ? popup.tok.daily : []
+                                Repeater {
+                                    model: bars.days
+                                    delegate: Item {
+                                        id: day
+                                        required property var modelData
+                                        width: (bars.width - bars.spacing * (bars.days.length - 1)) / Math.max(1, bars.days.length)
+                                        height: bars.height
+                                        Rectangle {
+                                            anchors.bottom: parent.bottom
+                                            width: parent.width
+                                            radius: 2
+                                            height: Math.max(2, parent.height * day.modelData.ratio)
+                                            color: day.modelData.value > 0 ? (hover.containsMouse ? popup.c.text : popup.tokColor) : popup.c.track
+                                            Behavior on height { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+                                        }
+                                        MouseArea { id: hover; anchors.fill: parent; hoverEnabled: true }
+                                        ToolTip.visible: hover.containsMouse
+                                        ToolTip.text: day.modelData.label + ": " + day.modelData.text
+                                    }
+                                }
                             }
                         }
+                        }
+                        HoverHandler { id: stripHover; cursorShape: Qt.PointingHandCursor }
+                        ToolTip.visible: stripHover.hovered && !!popup.v
+                        ToolTip.delay: 800
+                        ToolTip.text: popup.v ? popup.v.text.localOnly : ""
+                    }
+
+                    TokenDetails {
+                        visible: popup.page === "tokens" && !!popup.tokNow
+                        Layout.fillWidth: true
+                    }
+
+                    // Built when opened, so it always starts from the current settings.
+                    Loader {
+                        active: popup.page === "settings"
+                        visible: active
+                        Layout.fillWidth: true
+                        sourceComponent: SettingsPage {}
+                    }
+
+                    Text {
+                        visible: !!popup.v
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignRight
+                        font.pointSize: 8
+                        color: popup.c.muted
+                        text: popup.v ? popup.v.text.updated : ""
                     }
                 }
-                }
-                HoverHandler { id: stripHover; cursorShape: Qt.PointingHandCursor }
-                ToolTip.visible: stripHover.hovered && !!popup.v
-                ToolTip.delay: 800
-                ToolTip.text: popup.v ? popup.v.text.localOnly : ""
-            }
-
-            TokenDetails {
-                visible: popup.page === "tokens" && !!popup.tokNow
-                Layout.fillWidth: true
-            }
-
-            Text {
-                visible: !!popup.v
-                Layout.fillWidth: true
-                horizontalAlignment: Text.AlignRight
-                font.pointSize: 8
-                color: popup.c.muted
-                text: popup.v ? popup.v.text.updated : ""
             }
         }
     }

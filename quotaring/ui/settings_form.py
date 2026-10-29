@@ -18,7 +18,7 @@ def form(s: Settings, autostart_supported: bool) -> dict:
         values[f"enabled_{pid}"] = s.providers_enabled.get(pid, True)
         values[f"quota_{pid}"] = s.quota_enabled.get(pid, True) and pid not in NO_QUOTA
     text = {key: tr(src) for key, src in {
-        "title": "QuotaRing — Settings", "general": "General", "appearance": "Appearance",
+        "general": "General", "appearance": "Appearance",
         "notifications": "Notifications", "providers": "Providers", "commands": "Command paths",
         "local": "Local refresh every", "quota": "Quota refresh every", "timeout": "Query timeout",
         "seconds": "seconds", "theme": "Theme", "system": "Follow system", "light": "Light", "dark": "Dark",
@@ -29,7 +29,7 @@ def form(s: Settings, autostart_supported: bool) -> dict:
         "notify": "Notify at quota",
         "notifyHint": "Notify when a limit's use reaches", "off": "Off", "track": "Track this provider",
         "checkQuota": "Check the provider's account limits", "claudeCommand": "claude command",
-        "codexCommand": "codex command", "close": "Close", "instant": "Changes apply right away",
+        "codexCommand": "codex command", "instant": "Changes apply right away",
         "privacy": "Quota checks start the provider's own CLI (no model request). "
                    "The widget never reads or stores credentials.",
     }.items()}

@@ -10,7 +10,7 @@ os.environ.setdefault("QT_QUICK_BACKEND", "software")
 QtWidgets = pytest.importorskip("PySide6.QtWidgets")
 pytest.importorskip("PySide6.QtQuick")
 
-from PySide6.QtCore import QtMsgType, qInstallMessageHandler  # noqa: E402
+from PySide6.QtCore import QObject, QtMsgType, qInstallMessageHandler  # noqa: E402
 
 from quotaring import viewmodel  # noqa: E402
 from quotaring.aggregate import aggregate  # noqa: E402
@@ -158,7 +158,7 @@ def test_tray_tooltip_shows_what_is_left():
     assert viewmodel.limits_tooltip(none) == "Claude: Not signed in · run claude login"
 
 
-def test_settings_window_renders_and_saves(app, settings, qml_errors):
+def test_settings_page_renders_and_saves(app, settings, qml_errors):
     from quotaring.ui import settings_form
     backend, popup = popup_for(settings)
     backend.set_settings_form(settings_form.form(settings, True))
@@ -166,8 +166,8 @@ def test_settings_window_renders_and_saves(app, settings, qml_errors):
     backend.settingsSaved.connect(lambda values: saved.append(values))
     popup.open_settings()
     settle(app)
-    win = popup.settings_window
-    assert win.isVisible() and not win.grabWindow().isNull()
+    win = popup.window.findChild(QObject, "settingsPage")
+    assert win.isVisible() and not popup.window.grabWindow().isNull()
     draft = win.property("draft").toVariant()
     assert draft["theme"] == settings.theme  # the draft starts from the current settings
     backend.saveSettings(dict(draft, theme="dark", enabled_codex=False))
@@ -249,7 +249,7 @@ def test_settings_apply_without_save(app, settings, qml_errors):
     backend.settingsSaved.connect(lambda values: saved.append(values))
     popup.open_settings()
     settle(app)
-    win = popup.settings_window
+    win = popup.window.findChild(QObject, "settingsPage")
 
     def change(key, value, typed=False):
         QMetaObject.invokeMethod(win, "set", Q_ARG("QVariant", key), Q_ARG("QVariant", value),
@@ -262,7 +262,7 @@ def test_settings_apply_without_save(app, settings, qml_errors):
         time.sleep(0.02)
     assert saved and saved[-1]["theme"] == "dark"  # applied without a Save button
     change("claude_command", "/opt/claude", typed=True)
-    win.close()  # closing applies a typed value that was still waiting for a pause
+    popup.content().setProperty("page", "limits")  # leaving applies a typed value still waiting for a pause
     settle(app)
     assert saved[-1]["claude_command"] == "/opt/claude"
     assert qml_errors == []

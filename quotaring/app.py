@@ -240,7 +240,6 @@ class Controller(QObject):
         self.update_view()
 
     def open_settings(self):
-        self.hide_popup()
         self.backend.set_settings_form(settings_form.form(self.settings, autostart.supported()))
         self.popup.open_settings()
 
