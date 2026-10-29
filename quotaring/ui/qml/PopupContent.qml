@@ -122,6 +122,7 @@ Item {
                 contentHeight: pages.implicitHeight
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
+                interactive: popup.dragOrder === null  // a dragged card must not scroll the page
                 ScrollBar.vertical: ScrollBar {
                     id: vbar
                     policy: flick.contentHeight > flick.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
@@ -351,21 +352,24 @@ Item {
             Behavior on y { enabled: !card.dragging; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
         }
 
-        MouseArea {
-            anchors.fill: parent
-            z: -1  // under the rows: their hover and clicks keep working
-            pressAndHoldInterval: 450
-            preventStealing: card.dragging  // the list must not scroll away under the drag
-            cursorShape: card.dragging ? Qt.ClosedHandCursor : Qt.ArrowCursor
-            onPressAndHold: mouse => {
-                card.grab = Qt.point(mouse.x, mouse.y);
-                card.ptr = mapToItem(grid, mouse.x, mouse.y);
+        // Handlers on the card itself see presses on its rows and ring too, without taking them.
+        TapHandler {
+            id: hold
+            longPressThreshold: 0.45
+            onLongPressed: {
+                card.grab = hold.point.position;
+                card.ptr = card.mapToItem(grid, hold.point.position.x, hold.point.position.y);
                 popup.dragOrder = popup.cardOrder.slice();
                 card.dragging = true;
             }
-            onPositionChanged: mouse => {
+        }
+        PointHandler {
+            id: tracker
+            acceptedButtons: Qt.LeftButton
+            onActiveChanged: if (!active) card.drop()
+            onPointChanged: {
                 if (!card.dragging) return;
-                card.ptr = mapToItem(grid, mouse.x, mouse.y);
+                card.ptr = grid.mapFromItem(null, point.scenePosition.x, point.scenePosition.y);
                 // The card whose place is under the pointer (by layout, not by where the dragged
                 // card is drawn: it is always under the pointer itself).
                 for (const other of grid.children) {
@@ -377,8 +381,6 @@ Item {
                     }
                 }
             }
-            onReleased: card.drop()
-            onCanceled: card.drop()
         }
 
         ColumnLayout {
@@ -496,7 +498,8 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onHoveredChanged: card.rowHover = hovered ? row.index : (card.rowHover === row.index ? -1 : card.rowHover)
                     }
-                    TapHandler { onTapped: backend.pin(card.modelData.id, row.modelData.label) }
+                    // Held as long as it takes to lift the card, it is not a click.
+                    TapHandler { longPressThreshold: 0.45; onTapped: backend.pin(card.modelData.id, row.modelData.label) }
                     ColumnLayout {
                         id: rowCol
                         anchors.fill: parent

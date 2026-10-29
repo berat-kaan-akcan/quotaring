@@ -318,17 +318,20 @@ def test_cards_reorder_by_press_hold_and_drag(app, settings, qml_errors):
     QTest.mouseClick(w, Qt.LeftButton, Qt.NoModifier, at(first, 0.03, 0.02))
     wait(50)
     assert settings.card_order == []
-    # Press and hold on the first card, drag it onto the third, let go.
-    QTest.mousePress(w, Qt.LeftButton, Qt.NoModifier, at(first, 0.03, 0.02))
+    # Press and hold on a row of the first card (rows have handlers of their own), drag it onto
+    # the third, let go.
+    start = at(first, 0.3, 0.9)
+    QTest.mousePress(w, Qt.LeftButton, Qt.NoModifier, start)
     wait(700)
     assert first.property("dragging") is True
     target = at(third, 0.5, 0.5)
     for i in range(1, 6):
-        QTest.mouseMove(w, target * i / 5 + at(first, 0.03, 0.02) * (5 - i) / 5)
+        QTest.mouseMove(w, target * i / 5 + start * (5 - i) / 5)
         wait(20)
     QTest.mouseRelease(w, Qt.LeftButton, Qt.NoModifier, target)
     wait(50)
     assert first.property("dragging") is False
     assert settings.card_order == ["codex", "antigravity", "claude"]
+    assert settings.pinned == {}  # holding a row to drag is not a click on it
     assert {s: c.property("slot") for s, c in cards().items()} == {0: 0, 1: 1, 2: 2}
     assert qml_errors == []
