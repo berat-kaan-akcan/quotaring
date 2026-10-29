@@ -8,7 +8,7 @@ from ..viewmodel import COLORS
 
 NAMES = {"claude": "Claude Code", "codex": "Codex", "antigravity": "Antigravity"}
 NO_QUOTA: dict[str, str] = {}  # providers without any quota source: their toggle is disabled
-SCALARS = ("local_refresh_seconds", "quota_refresh_seconds", "timeout_seconds", "theme", "language",
+SCALARS = ("local_refresh_seconds", "quota_refresh_seconds", "timeout_seconds", "theme", "language", "accent",
            "show_remaining", "start_at_login", "notify_threshold", "claude_command", "codex_command")
 
 
@@ -22,7 +22,7 @@ def form(s: Settings, autostart_supported: bool) -> dict:
         "notifications": "Notifications", "providers": "Providers", "commands": "Command paths",
         "local": "Local refresh every", "quota": "Quota refresh every", "timeout": "Query timeout",
         "seconds": "seconds", "theme": "Theme", "system": "Follow system", "light": "Light", "dark": "Dark",
-        "language": "Language",
+        "language": "Language", "accent": "Accent colour", "slate": "Slate", "ink": "Ink", "amber": "Amber",
         "remaining": "Show limits as the percent left (off: used)", "autostart": "Start at login",
         "autostartHint": "Start QuotaRing when you log in", "notify": "Notify at quota",
         "notifyHint": "Notify when a limit's use reaches", "off": "Off", "track": "Track this provider",

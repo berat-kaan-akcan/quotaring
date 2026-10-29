@@ -218,3 +218,23 @@ def test_pinned_setting_is_cleaned(tmp_path):
     p = tmp_path / "s.json"
     p.write_text(json.dumps({"pinned": {"antigravity": "GPT-OSS 120B", "bard": "x", "codex": 3}}))
     assert settings_mod.load(p).pinned == {"antigravity": "GPT-OSS 120B"}
+
+
+def test_accent_colours():
+    from quotaring.settings import Settings
+    for name, (light, dark) in theme.ACCENTS.items():
+        assert theme.with_accent(theme.LIGHT, name).accent == light
+        assert theme.with_accent(theme.DARK, name).accent == dark
+    amber = theme.with_accent(theme.DARK, "amber")
+    assert amber.warn not in (theme.DARK.warn, amber.accent)  # "limit near" stays distinguishable
+    assert theme.with_accent(theme.LIGHT, "bogus").accent == theme.ACCENTS["slate"][0]
+    assert Settings(accent="bogus").clamp().accent == "slate"
+
+
+def test_accent_setting_round_trip(app, settings):
+    from quotaring.app import make_icon
+    from quotaring.ui import settings_form
+    settings_form.apply(settings, {"accent": "amber"})
+    assert settings.accent == "amber"
+    assert settings_form.form(settings, False)["values"]["accent"] == "amber"
+    assert not make_icon(settings.accent).pixmap(32, 32).isNull()

@@ -147,7 +147,7 @@ Saved as JSON in:
 Open Settings from the gear in the popup or the tray menu. Changes apply on Save, without a
 restart — including the language (follows the system, Turkish or English, or set it here).
 
-Options: theme (system / light / dark), language, limits as percent left or used, local
+Options: theme (system / light / dark), accent colour (Slate, Ink or Amber; the tray and app icon follow it), language, limits as percent left or used, local
 refresh interval (default 60 s), quota refresh interval (default 300 s), query timeout (20 s),
 start at login, quota notification threshold (default 90 %, only for fresh, provider-reported
 values), per-provider tracking and limit-check toggles, custom `claude` / `codex` paths.

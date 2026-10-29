@@ -18,6 +18,7 @@ class Settings:
     timeout_seconds: int = 20
     theme: str = "system"  # system | light | dark
     language: str = "system"  # system | en | tr
+    accent: str = "slate"  # slate | ink | amber: accent and app-icon colour
     start_at_login: bool = False
     show_remaining: bool = True  # limits as what is left (else as what is used)
     pinned: dict = field(default_factory=dict)  # provider id -> limit label shown on its ring
@@ -36,6 +37,8 @@ class Settings:
             self.language = "system"
         if self.theme not in ("system", "light", "dark"):
             self.theme = "system"
+        if self.accent not in ("slate", "ink", "amber"):
+            self.accent = "slate"
         self.pinned = {k: v for k, v in self.pinned.items() if k in PROVIDER_IDS and isinstance(v, str)}
         for d in (self.providers_enabled, self.quota_enabled):
             for p in PROVIDER_IDS:

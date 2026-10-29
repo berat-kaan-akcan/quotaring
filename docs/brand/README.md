@@ -14,7 +14,7 @@ tail is the needle. It is the app's tray ring turned into a letter.
 | `quotaring-stacked.svg` | Square-ish spaces (social preview, splash) |
 | `quotaring-symbol.svg` | Symbol alone, 48 px and up |
 | `quotaring-symbol-small.svg` | Heavier cut for 16–32 px (favicon, tray) |
-| `quotaring-app-icon.svg`, `-small.svg` | App icon tile (the PNG/ICO files in `packaging/icons` are drawn from the same geometry by `quotaring.app.make_icon`) |
+| `quotaring-app-icon.svg`, `-small.svg` (`-ink`, `-amber` variants) | App icon tile (the PNG/ICO files in `packaging/icons` are drawn from the same geometry by `quotaring.app.make_icon`) |
 | `*-black.svg`, `*-white.svg` | One-colour versions for print, stamps, single-colour UI |
 
 Rebuild everything with `QT_QPA_PLATFORM=offscreen python docs/brand/build_logo.py`, then
@@ -22,21 +22,22 @@ Rebuild everything with `QT_QPA_PLATFORM=offscreen python docs/brand/build_logo.
 
 ## Colour
 
-| Name | HEX | RGB | Use |
+QuotaRing has three accent colours; the user picks one in **Settings → Accent colour**, and the
+app's accent and its icon follow it. **Slate** is the default and the colour of the logo files.
+
+| Accent | On light | On dark | Character |
 |---|---|---|---|
-| Ring Purple | `#9448D6` | 148, 72, 214 | Symbol on light backgrounds; the app's light-theme accent |
-| Lilac | `#C99CF5` | 201, 156, 245 | Symbol on dark backgrounds; the app's dark-theme accent |
-| Night | `#18191C` | 24, 25, 28 | App icon tile, dark backgrounds |
-| Ink | `#1D1C1A` | 29, 28, 26 | Wordmark on light backgrounds |
-| Paper | `#F6F5F2` | 246, 245, 242 | Light backgrounds |
+| Slate (default) | `#3F5468` | `#A9B8C8` | Calm, technical; reads almost neutral at tray size |
+| Ink | `#1D1C1A` | `#ECEBE8` | The app's own text colour; sits in the tray like a system icon |
+| Amber | `#A15F00` | `#F2B544` | Warm, gauge-like, bright on dark panels; the app's "limit near" colour moves to orange with it |
 
-**Why purple:** the app's provider rings sit at orange (~15°), green (~165°) and blue (~217°) on the
-colour wheel. Purple (~272°) fills the largest free gap, so the logo and the app's accent never
-clash with a provider ring yet sit calmly on the warm neutral backgrounds. The provider colours
-belong to those providers and are never used for the QuotaRing logo.
+Neutrals: Night `#18191C` (app icon tile, dark backgrounds), Ink `#1D1C1A` (wordmark on light),
+Paper `#F6F5F2` (light backgrounds).
 
-Ring Purple on white has a contrast ratio of 5.1:1 (4.6:1 on Paper) and Lilac on Night 8.0:1,
-all above the WCAG 3:1 minimum for graphics and 4.5:1 for text.
+None of the accents is close to the provider colours used inside the app (orange, green, blue);
+those belong to the providers and are never used for the QuotaRing logo. Every accent passes
+4.5:1 against its background (Slate 7.8:1 on white and 8.7:1 on Night; Amber 5.1:1 on white
+and 9.6:1 on Night).
 
 ## Type
 
@@ -53,4 +54,4 @@ Use Noto Sans for text set next to the logo.
 - Recolour the symbol in provider colours or add gradients, shadows or outlines.
 - Close the ring, move the gap or change the tail's angle; the open quarter is the idea.
 - Stretch, rotate or set the wordmark in another typeface.
-- Place Ring Purple on mid-tone or busy backgrounds; use the white or black version instead.
+- Mix accents (a Slate ring with an Amber wordmark) or place an accent on mid-tone or busy backgrounds; use the white or black version instead.

@@ -19,7 +19,7 @@ First public release.
   counts from its conversation databases (read-only).
 - Token strip: today, 7 days and a 7-day bar chart from local history, for all providers or
   one picked from the chips above it.
-- Settings: theme, language (English / Turkish, follows the system by default), percent left or
+- Settings: theme, accent colour (Slate, Ink, Amber; the app icon follows it), language (English / Turkish, follows the system by default), percent left or
   used, refresh intervals, start at login, quota notifications, per-provider toggles, CLI paths.
 - KDE Plasma Wayland: popup as a layer-shell surface anchored by the panel; XWayland fallback
   elsewhere (`--xwayland`).

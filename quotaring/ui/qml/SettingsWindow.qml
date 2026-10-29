@@ -62,6 +62,14 @@ Window {
                         }
                     }
                     Row2 {
+                        label: win.t.accent
+                        Segmented {
+                            options: [["slate", win.t.slate], ["ink", win.t.ink], ["amber", win.t.amber]]
+                            value: win.draft.accent || "slate"
+                            onPicked: v => win.set("accent", v)
+                        }
+                    }
+                    Row2 {
                         label: win.t.language
                         Segmented {
                             options: [["system", win.t.system], ["en", "English"], ["tr", "Türkçe"]]

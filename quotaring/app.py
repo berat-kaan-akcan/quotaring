@@ -23,8 +23,9 @@ from .ui.popup import Backend, Popup, layer_shell_import_dir
 log = logging.getLogger("quotaring")
 
 
-def make_icon() -> QIcon:
+def make_icon(accent: str = theme.DEFAULT_ACCENT) -> QIcon:
     """App icon: the QuotaRing mark (a Q drawn as a gauge) on a dark tile; see docs/brand/build_logo.py."""
+    color = theme.ACCENTS.get(accent, theme.ACCENTS[theme.DEFAULT_ACCENT])[1]  # the tile is always dark
     icon = QIcon()
     for size in (16, 22, 24, 32, 48, 64, 128, 256):
         pm = QPixmap(size, size)
@@ -42,7 +43,7 @@ def make_icon() -> QIcon:
         def at(v):  # canvas coordinate -> pixel, as translate(124) scale(s) translate(-128) in the SVG
             return (124 + scale * (v - 128)) * k
         rr, ww = r * scale * k, w * scale * k
-        p.setPen(QPen(QColor("#c99cf5"), ww, Qt.SolidLine, Qt.RoundCap))
+        p.setPen(QPen(QColor(color), ww, Qt.SolidLine, Qt.RoundCap))
         p.setBrush(Qt.NoBrush)
         p.drawArc(QRectF(at(c) - rr, at(c) - rr, 2 * rr, 2 * rr), 90 * 16, -270 * 16)
         d = 0.70710678
@@ -114,8 +115,8 @@ class Controller(QObject):
         self.signals.done.connect(self._on_done)
         self.seen_alerts = alerts.Seen()
 
-        self.palette = theme.resolve(self.settings.theme)
-        self.icon = make_icon()
+        self.palette = theme.resolve(self.settings.theme, self.settings.accent)
+        self.icon = make_icon(self.settings.accent)
         app.setWindowIcon(self.icon)
         self.backend = Backend(self.settings, self.palette)
         self.backend.refreshRequested.connect(lambda: self.refresh(force=True))
@@ -210,7 +211,7 @@ class Controller(QObject):
                               if ring["available"] else self.icon)
 
     def _panel_palette(self):
-        return theme.DARK if theme.system_is_dark() else theme.LIGHT
+        return theme.with_accent(theme.DARK if theme.system_is_dark() else theme.LIGHT, self.settings.accent)
 
     def _maybe_notify(self, snap):
         if self.tray is None:
@@ -220,8 +221,10 @@ class Controller(QObject):
 
     # -- popup / settings -----------------------------------------------
     def apply_theme(self):
-        self.palette = theme.resolve(self.settings.theme)
+        self.palette = theme.resolve(self.settings.theme, self.settings.accent)
         self.backend.set_palette(self.palette)
+        self.icon = make_icon(self.settings.accent)
+        self.app.setWindowIcon(self.icon)
         self.update_view()
 
     def open_settings(self):
