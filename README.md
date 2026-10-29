@@ -219,11 +219,6 @@ Layout: `quotaring/model.py` (data types), `quotaring/providers/` (one module pe
 `quotaring/viewmodel.py` (display-ready view for the popup), `quotaring/ui/`
 (tray popup and settings window: `popup.py`, `settings_form.py`, `qml/`), `packaging/` (PyInstaller spec, Linux/Arch/Windows packaging).
 
-## Credits
+## License
 
-Ideas and protocol knowledge (deduplication strategy, Codex cumulative counters, CLI-based quota
-queries) come from two MIT-licensed projects:
-[yusufipk/kde-agents-usage](https://github.com/yusufipk/kde-agents-usage) and
-[RanulfoMNeto/agent-usage](https://github.com/RanulfoMNeto/agent-usage). No code was copied.
-
-License: [MIT](LICENSE) © 2026 Berat Kaan Akcan.
+[MIT](LICENSE) © 2026 Berat Kaan Akcan
