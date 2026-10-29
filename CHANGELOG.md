@@ -18,7 +18,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Changed
 - Settings are a page of the popup (gear icon, or *Settings…* in the tray menu) instead of a
   separate window.
-- Popup pages taller than the screen scroll under a fixed header.
+- The popup grows with its page up to 660 px (or the screen's height); taller pages scroll
+  under a fixed header.
+- Settings are shorter: notification threshold as Off / 80 / 90 / 95 %, one line per provider
+  with Track and Limits switches, and refresh intervals, timeout and command paths under a
+  collapsed *Advanced* section.
 - Antigravity: while Antigravity runs, limits come from its local language server — the same
   groups as its "View Usage" panel (Gemini, Claude and GPT: 5 hours and weekly; Gemini 4 Argon:
   weekly). Each model keeps its own row; the selected (or tightest) model shows its group's

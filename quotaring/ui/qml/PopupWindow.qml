@@ -7,8 +7,9 @@ Window {
     id: win
     property bool docked: true
     width: 400
-    // Fits the cards; scrolling a popup this small would only hide things.
-    height: Math.min(content.implicitHeight, Screen.desktopAvailableHeight - 24)
+    // Grows with the page up to a comfortable height (or the screen's); taller pages scroll.
+    readonly property int maxHeight: 660
+    height: Math.min(content.implicitHeight, maxHeight, Screen.desktopAvailableHeight - 24)
     title: backend.view ? backend.view.labels.title : "QuotaRing"
     color: "transparent"
     flags: docked ? (Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint) : Qt.Window

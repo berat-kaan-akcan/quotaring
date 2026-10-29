@@ -18,17 +18,14 @@ def form(s: Settings, autostart_supported: bool) -> dict:
         values[f"enabled_{pid}"] = s.providers_enabled.get(pid, True)
         values[f"quota_{pid}"] = s.quota_enabled.get(pid, True) and pid not in NO_QUOTA
     text = {key: tr(src) for key, src in {
-        "general": "General", "appearance": "Appearance",
-        "notifications": "Notifications", "providers": "Providers", "commands": "Command paths",
+        "general": "General", "appearance": "Appearance", "providers": "Providers", "advanced": "Advanced",
+        "track": "Track", "limits": "Limits",
         "local": "Local refresh every", "quota": "Quota refresh every", "timeout": "Query timeout",
         "seconds": "seconds", "theme": "Theme", "system": "Follow system", "light": "Light", "dark": "Dark",
         "language": "Language", "accent": "Accent colour", "slate": "Slate", "ink": "Ink", "amber": "Amber",
         "remaining": "Show limits as the percent left (off: used)", "autostart": "Start at login",
-        "autostartHint": "Start QuotaRing when you log in", "prices": "Update API prices",
-        "pricesHint": "Weekly, from the LiteLLM and OpenRouter price lists; for the cost estimate on the Tokens page",
-        "notify": "Notify at quota",
-        "notifyHint": "Notify when a limit's use reaches", "off": "Off", "track": "Track this provider",
-        "checkQuota": "Check the provider's account limits", "claudeCommand": "claude command",
+        "prices": "Update API prices", "pricesHint": "Weekly, for the cost estimate on the Tokens page",
+        "notify": "Notify at quota", "off": "Off", "claudeCommand": "claude command",
         "codexCommand": "codex command", "instant": "Changes apply right away",
         "privacy": "Quota checks start the provider's own CLI (no model request). "
                    "The widget never reads or stores credentials.",

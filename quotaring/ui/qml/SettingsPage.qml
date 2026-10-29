@@ -68,6 +68,67 @@ ColumnLayout {
     Section {
         title: win.t.general
         Row2 {
+            label: win.t.autostart
+            enabled: !!win.f.autostartSupported
+            Toggle { checked: !!win.draft.start_at_login; onToggled: v => win.set("start_at_login", v) }
+        }
+        Row2 {
+            label: win.t.prices
+            hint: win.t.pricesHint
+            Toggle { checked: !!win.draft.update_prices; onToggled: v => win.set("update_prices", v) }
+        }
+        Row2 {
+            label: win.t.notify
+            Segmented {
+                options: [["0", win.t.off || ""]].concat([80, 90, 95].map(
+                    n => [String(n), (win.t.pct || "{n}%").replace("{n}", n)]))
+                value: String(win.draft.notify_threshold || 0)
+                onPicked: v => win.set("notify_threshold", parseInt(v))
+            }
+        }
+    }
+
+    // One line per provider: track it, and check its account limits.
+    Section {
+        title: win.t.providers
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+            Item { Layout.fillWidth: true; implicitHeight: 1 }
+            Text { Layout.preferredWidth: 42; horizontalAlignment: Text.AlignHCenter; text: win.t.track || ""; color: win.c.muted; font.pointSize: 8 }
+            Text { Layout.preferredWidth: 42; horizontalAlignment: Text.AlignHCenter; text: win.t.limits || ""; color: win.c.muted; font.pointSize: 8 }
+        }
+        Repeater {
+            model: win.f.providers || []
+            delegate: RowLayout {
+                id: prov
+                required property var modelData
+                readonly property bool tracked: !!win.draft["enabled_" + modelData.id]
+                Layout.fillWidth: true
+                spacing: 10
+                Rectangle { implicitWidth: 4; implicitHeight: 20; radius: 2; color: prov.modelData.color }
+                Text { Layout.fillWidth: true; text: prov.modelData.name; color: win.c.text; font.pointSize: 10 }
+                Toggle {
+                    tone: prov.modelData.color
+                    checked: prov.tracked
+                    onToggled: v => win.set("enabled_" + prov.modelData.id, v)
+                }
+                Toggle {
+                    tone: prov.modelData.color
+                    enabled: prov.tracked && prov.modelData.quotaNote === ""
+                    opacity: enabled ? 1 : 0.45
+                    checked: !!win.draft["quota_" + prov.modelData.id]
+                    onToggled: v => win.set("quota_" + prov.modelData.id, v)
+                }
+            }
+        }
+    }
+
+    // Rarely changed: closed until asked for.
+    Section {
+        title: win.t.advanced
+        collapsible: true
+        Row2 {
             label: win.t.local
             Stepper { from: 15; to: 3600; step: 15; value: win.draft.local_refresh_seconds || 60; onEdited: v => win.set("local_refresh_seconds", v) }
         }
@@ -79,123 +140,6 @@ ColumnLayout {
             label: win.t.timeout
             Stepper { from: 5; to: 120; step: 5; value: win.draft.timeout_seconds || 20; onEdited: v => win.set("timeout_seconds", v) }
         }
-        Row2 {
-            label: win.t.autostart
-            hint: win.t.autostartHint
-            enabled: !!win.f.autostartSupported
-            Toggle { checked: !!win.draft.start_at_login; onToggled: v => win.set("start_at_login", v) }
-        }
-        Row2 {
-            label: win.t.prices
-            hint: win.t.pricesHint
-            Toggle { checked: !!win.draft.update_prices; onToggled: v => win.set("update_prices", v) }
-        }
-    }
-
-    Section {
-        title: win.t.notifications
-        Row2 {
-            label: win.t.notifyHint
-            Text {
-                readonly property int n: win.draft.notify_threshold || 0
-                text: n === 0 ? win.t.off : win.t.pct.replace("{n}", n)
-                color: n === 0 ? win.c.muted : win.c.accent
-                font.pointSize: 12
-                font.weight: Font.DemiBold
-                font.features: { "tnum": 1 }
-            }
-        }
-        Slider {
-            id: notify
-            Layout.fillWidth: true
-            from: 0; to: 100; stepSize: 5
-            value: win.draft.notify_threshold || 0
-            onMoved: win.set("notify_threshold", Math.round(value))
-            background: Rectangle {
-                x: notify.leftPadding
-                y: notify.topPadding + notify.availableHeight / 2 - height / 2
-                width: notify.availableWidth
-                height: 6
-                radius: 3
-                color: win.c.track
-                Rectangle {
-                    width: notify.visualPosition * parent.width
-                    height: parent.height
-                    radius: 3
-                    color: win.c.accent
-                }
-            }
-            handle: Rectangle {
-                x: notify.leftPadding + notify.visualPosition * (notify.availableWidth - width)
-                y: notify.topPadding + notify.availableHeight / 2 - height / 2
-                width: 20
-                height: 20
-                radius: 10
-                color: "white"
-                border.color: win.c.accent
-                border.width: 2
-            }
-        }
-    }
-
-    Section {
-        title: win.t.providers
-        Repeater {
-            model: win.f.providers || []
-            delegate: ColumnLayout {
-                id: prov
-                required property var modelData
-                required property int index
-                readonly property bool tracked: !!win.draft["enabled_" + modelData.id]
-                Layout.fillWidth: true
-                spacing: 8
-                Rectangle {
-                    visible: prov.index > 0
-                    Layout.fillWidth: true
-                    implicitHeight: 1
-                    color: win.c.border
-                }
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 10
-                    Rectangle { implicitWidth: 4; implicitHeight: 22; radius: 2; color: prov.modelData.color }
-                    ColumnLayout {
-                        spacing: 0
-                        Text { text: prov.modelData.name; color: win.c.text; font.pointSize: 11; font.weight: Font.DemiBold }
-                        Text { text: win.t.track; color: win.c.muted; font.pointSize: 8.5 }
-                    }
-                    Item { Layout.fillWidth: true }
-                    Toggle {
-                        tone: prov.modelData.color
-                        checked: prov.tracked
-                        onToggled: v => win.set("enabled_" + prov.modelData.id, v)
-                    }
-                }
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: 14
-                    spacing: 10
-                    enabled: prov.tracked && prov.modelData.quotaNote === ""
-                    opacity: enabled ? 1 : 0.45
-                    Text {
-                        Layout.fillWidth: true
-                        wrapMode: Text.WordWrap
-                        text: prov.modelData.quotaNote || win.t.checkQuota
-                        color: win.c.text
-                        font.pointSize: 9.5
-                    }
-                    Toggle {
-                        tone: prov.modelData.color
-                        checked: !!win.draft["quota_" + prov.modelData.id]
-                        onToggled: v => win.set("quota_" + prov.modelData.id, v)
-                    }
-                }
-            }
-        }
-    }
-
-    Section {
-        title: win.t.commands
         Field { label: win.t.claudeCommand; text: win.draft.claude_command || ""; onEdited: v => win.set("claude_command", v, true) }
         Field { label: win.t.codexCommand; text: win.draft.codex_command || ""; onEdited: v => win.set("codex_command", v, true) }
         Text {
@@ -203,7 +147,7 @@ ColumnLayout {
             wrapMode: Text.WordWrap
             text: win.t.privacy || ""
             color: win.c.muted
-            font.pointSize: 8.5
+            font.pointSize: 8
         }
     }
 
@@ -217,29 +161,50 @@ ColumnLayout {
 
     // -- building blocks ------------------------------------------------------
 
-    // -- building blocks ------------------------------------------------------
-
+    // A card with an upper-case title; a collapsible one opens and closes from its title.
     component Section: Rectangle {
         id: sec
         property string title
-        default property alias content: inner.data
+        property bool collapsible: false
+        property bool open: !collapsible
+        default property alias content: body.data
         Layout.fillWidth: true
-        implicitHeight: inner.implicitHeight + 32
+        implicitHeight: inner.implicitHeight + 28
         radius: 14
         color: win.c.card
         border.color: win.c.border
         ColumnLayout {
             id: inner
-            x: 16
-            y: 14
-            width: parent.width - 32
-            spacing: 12
-            Text {
-                text: sec.title ? sec.title.toLocaleUpperCase(win.t.locale || "en") : ""
-                color: win.c.muted
-                font.pointSize: 8
-                font.weight: Font.DemiBold
-                font.letterSpacing: 0.8
+            x: 14
+            y: 12
+            width: parent.width - 28
+            spacing: 10
+            RowLayout {
+                Layout.fillWidth: true
+                Text {
+                    Layout.fillWidth: true
+                    text: sec.title ? sec.title.toLocaleUpperCase(win.t.locale || "en") : ""
+                    color: win.c.muted
+                    font.pointSize: 8
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: 0.8
+                }
+                Text {
+                    visible: sec.collapsible
+                    text: "›"
+                    color: win.c.muted
+                    font.pointSize: 12
+                    rotation: sec.open ? 90 : 0
+                    Behavior on rotation { NumberAnimation { duration: 120 } }
+                }
+                HoverHandler { enabled: sec.collapsible; cursorShape: Qt.PointingHandCursor }
+                TapHandler { enabled: sec.collapsible; onTapped: sec.open = !sec.open }
+            }
+            ColumnLayout {
+                id: body
+                visible: sec.open
+                Layout.fillWidth: true
+                spacing: 10
             }
         }
     }
@@ -262,7 +227,7 @@ ColumnLayout {
                 Layout.fillWidth: true
                 text: row.hint
                 color: win.c.muted
-                font.pointSize: 8.5
+                font.pointSize: 8
                 wrapMode: Text.WordWrap
             }
         }

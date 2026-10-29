@@ -147,8 +147,9 @@ TR = {
     "By model": "Modele göre",
     "Token usage": "Token kullanımı",
     "Update API prices": "API fiyatlarını güncelle",
-    "Weekly, from the LiteLLM and OpenRouter price lists; for the cost estimate on the Tokens page":
-        "Haftada bir, LiteLLM ve OpenRouter fiyat listelerinden; Tokenlar sayfasındaki maliyet tahmini için",
+    "Weekly, for the cost estimate on the Tokens page": "Haftada bir, Tokenlar sayfasındaki maliyet tahmini için",
+    "Advanced": "Gelişmiş",
+    "Track": "İzle",
     "Back": "Geri",
     "Details": "Ayrıntılar",
     "≈ {cost} at API prices, cache included": "API fiyatlarıyla ≈ {cost}, cache dahil",
