@@ -226,21 +226,31 @@ def _server_args(argv: list[str]) -> tuple[int, str] | None:
 
 
 def running_servers() -> list[tuple[int, str]]:
-    """Local Antigravity language servers that accept quota requests (Linux and macOS)."""
+    """This user's Antigravity language servers that accept quota requests (Linux and macOS)."""
+    return [s for s in map(_server_args, own_cmdlines()) if s]
+
+
+def own_cmdlines() -> list[list[str]]:
+    """Command lines of this user's processes. Another user's process could pose as a language
+    server and feed made-up limits, so only our own count."""
     cmdlines: list[list[str]] = []
     if sys.platform.startswith("linux"):
+        uid = os.getuid()
         for d in Path("/proc").glob("[0-9]*"):
             try:
+                if d.stat().st_uid != uid:
+                    continue
                 cmdlines.append((d / "cmdline").read_bytes().decode("utf-8", "replace").split("\0"))
             except OSError:
-                continue  # exited, or not ours
+                continue  # exited meanwhile
     elif sys.platform == "darwin":
         try:
-            out = subprocess.run(["ps", "-axww", "-o", "args="], capture_output=True, text=True, timeout=5).stdout
+            out = subprocess.run(["ps", "-U", str(os.getuid()), "-ww", "-o", "args="],
+                                 capture_output=True, text=True, timeout=5).stdout
         except (OSError, subprocess.SubprocessError):
             return []
         cmdlines = [line.split() for line in out.splitlines()]
-    return [s for s in map(_server_args, cmdlines) if s]
+    return cmdlines
 
 
 def fetch(port: int, token: str, path: str) -> dict:
@@ -265,8 +275,13 @@ def _groups(data) -> list[dict]:
     return [g for g in groups if isinstance(g, dict)] if isinstance(groups, list) else []
 
 
+def _plain(text: str) -> str:
+    """Names from the server end up in Qt labels and tooltips: no markup."""
+    return re.sub(r"[<>&]", "", text)
+
+
 def _group_name(group: dict) -> str:
-    return re.sub(r"\s+models$", "", str(group.get("displayName") or ""), flags=re.I).strip()
+    return re.sub(r"\s+models$", "", _plain(str(group.get("displayName") or "")), flags=re.I).strip()
 
 
 def parse_quota_summary(data: dict) -> list[QuotaWindow]:
@@ -293,8 +308,8 @@ def model_families(status: dict) -> list[str]:
     out: list[str] = []
     for c in configs if isinstance(configs, list) else []:
         label = c.get("label") if isinstance(c, dict) else None
-        if isinstance(label, str) and _family(label) not in out:
-            out.append(_family(label))
+        if isinstance(label, str) and _family(_plain(label)) not in out:
+            out.append(_family(_plain(label)))
     return out
 
 

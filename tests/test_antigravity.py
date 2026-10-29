@@ -327,3 +327,30 @@ def test_models_matched_to_their_group():
         {"name": "Gemini 3.8 Flash", "windows": ["antigravity:gemini-5h", "antigravity:gemini-weekly"]},
         {"name": "Claude Opus 5.5", "windows": ["antigravity:3p-5h"]}]
     assert model_families({}) == [] and model_families({"userStatus": {"cascadeModelConfigData": {"clientModelConfigs": 3}}}) == []
+
+
+def test_server_names_carry_no_markup():
+    from quotaring.providers.antigravity import model_families, parse_quota_summary
+    summary = {"response": {"groups": [{"displayName": "<img src=x>Evil models", "buckets": [
+        {"bucketId": "e", "window": "weekly", "remainingFraction": 0.5}]}]}}
+    assert parse_quota_summary(summary)[0].label == "Weekly · img src=xEvil"
+    status = {"userStatus": {"cascadeModelConfigData": {"clientModelConfigs": [{"label": "<b>Bold</b> (High)"}]}}}
+    assert model_families(status) == ["bBold/b"]
+
+
+def test_only_this_users_processes_are_trusted(monkeypatch, tmp_path):
+    import sys
+    from quotaring.providers import antigravity
+    if not sys.platform.startswith("linux"):
+        return
+    real_glob = antigravity.Path.glob
+    mine, theirs = tmp_path / "100", tmp_path / "200"
+    for d in (mine, theirs):
+        d.mkdir()
+        (d / "cmdline").write_bytes(b"/x/agy\0--hub-port=1\0--csrf_token=t\0")
+    real_stat = antigravity.Path.stat
+    monkeypatch.setattr(antigravity.Path, "glob",
+                        lambda self, pat: [mine, theirs] if str(self) == "/proc" else real_glob(self, pat))
+    monkeypatch.setattr(antigravity.Path, "stat", lambda self, **kw: type("S", (), {
+        "st_uid": os.getuid() if self == mine else os.getuid() + 1})() if self in (mine, theirs) else real_stat(self, **kw))
+    assert antigravity.own_cmdlines() == [["/x/agy", "--hub-port=1", "--csrf_token=t", ""]]

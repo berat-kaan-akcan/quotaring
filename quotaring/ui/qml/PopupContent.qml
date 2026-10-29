@@ -392,7 +392,7 @@ Item {
                                 font.pointSize: 8
                                 font.weight: Font.Bold
                             }
-                            Text { text: row.modelData.label; color: popup.c.text; font.pointSize: 9; Layout.fillWidth: true; elide: Text.ElideRight }
+                            Text { text: row.modelData.label; textFormat: Text.PlainText; color: popup.c.text; font.pointSize: 9; Layout.fillWidth: true; elide: Text.ElideRight }
                             Text {
                                 text: row.modelData.limited ? "!" : T.pct(popup.v, card.shown(row.modelData))
                                 color: row.modelData.limited ? popup.c.bad : popup.c.text
@@ -681,6 +681,7 @@ Item {
                         Rectangle { width: 8; height: 8; radius: 2; color: m.modelData.color }
                         Text {
                             text: m.modelData.name
+                            textFormat: Text.PlainText  // model ids come from local logs
                             color: popup.c.text
                             font.pointSize: 9.5
                             font.weight: Font.DemiBold

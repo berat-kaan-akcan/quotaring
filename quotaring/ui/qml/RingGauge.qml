@@ -113,6 +113,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: gauge.label !== ""
             text: gauge.label
+            textFormat: Text.PlainText
             color: gauge.textColor
             opacity: 0.85
             font.pixelSize: gauge.width * 0.085
