@@ -13,7 +13,7 @@ from pathlib import Path
 from PySide6.QtGui import QFont, QGuiApplication, QPainterPath
 
 OUT = Path(__file__).resolve().parent
-BLUE, SKY, NIGHT, INK, INK_DARK = "#3D6FD9", "#7AA2F7", "#18191C", "#1D1C1A", "#ECEBE8"
+PURPLE, LILAC, NIGHT, INK, INK_DARK = "#9448D6", "#C99CF5", "#18191C", "#1D1C1A", "#ECEBE8"
 
 
 def mark(c=125.0, r=80.0, w=36.0, tail=116.0) -> str:
@@ -69,8 +69,8 @@ def svg(name: str, viewbox: str, body: str) -> None:
 
 def main():
     QGuiApplication(sys.argv)
-    svg("quotaring-symbol", "0 0 256 256", f'<path fill="{BLUE}" d="{SYMBOL}"/>')
-    svg("quotaring-symbol-small", "0 0 256 256", f'<path fill="{BLUE}" d="{SYMBOL_SMALL}"/>')
+    svg("quotaring-symbol", "0 0 256 256", f'<path fill="{PURPLE}" d="{SYMBOL}"/>')
+    svg("quotaring-symbol-small", "0 0 256 256", f'<path fill="{PURPLE}" d="{SYMBOL_SMALL}"/>')
     svg("quotaring-symbol-black", "0 0 256 256", f'<path fill="#000" d="{SYMBOL}"/>')
     svg("quotaring-symbol-white", "0 0 256 256", f'<path fill="#fff" d="{SYMBOL}"/>')
 
@@ -79,7 +79,7 @@ def main():
     x0 = 256 + 36 - box.left()
     y0 = 128 - (box.top() + box.bottom()) / 2 + 6
     width = x0 + box.right() + 20
-    for name, mark_color, text_color in (("horizontal", BLUE, INK), ("horizontal-dark", SKY, INK_DARK),
+    for name, mark_color, text_color in (("horizontal", PURPLE, INK), ("horizontal-dark", LILAC, INK_DARK),
                                          ("horizontal-black", "#000", "#000"),
                                          ("horizontal-white", "#fff", "#fff")):
         svg(f"quotaring-{name}", f"0 0 {width:.0f} 256",
@@ -92,15 +92,15 @@ def main():
     sx = (width - 256) / 2
     tx, ty = (width - box.width()) / 2 - box.left(), 256 + 36 - box.top()
     svg("quotaring-stacked", f"0 0 {width:.0f} {ty + box.bottom() + 20:.0f}",
-        f'<path fill="{BLUE}" transform="translate({sx:.2f} 0)" d="{SYMBOL}"/>'
+        f'<path fill="{PURPLE}" transform="translate({sx:.2f} 0)" d="{SYMBOL}"/>'
         f'<path fill="{INK}" transform="translate({tx:.2f} {ty:.2f})" d="{text}"/>')
 
-    # App icon: night tile, sky-blue mark nudged up-left to sit on the optical centre.
+    # App icon: night tile, lilac mark nudged up-left to sit on the optical centre.
     tile = f'<rect width="256" height="256" rx="56" fill="{NIGHT}"/>'
     svg("quotaring-app-icon", "0 0 256 256", tile +
-        f'<path fill="{SKY}" transform="translate(124 124) scale(0.74) translate(-128 -128)" d="{SYMBOL}"/>')
+        f'<path fill="{LILAC}" transform="translate(124 124) scale(0.74) translate(-128 -128)" d="{SYMBOL}"/>')
     svg("quotaring-app-icon-small", "0 0 256 256", tile +
-        f'<path fill="{SKY}" transform="translate(124 124) scale(0.8) translate(-128 -128)" d="{SYMBOL_SMALL}"/>')
+        f'<path fill="{LILAC}" transform="translate(124 124) scale(0.8) translate(-128 -128)" d="{SYMBOL_SMALL}"/>')
     print("written to", OUT)
 
 

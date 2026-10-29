@@ -24,15 +24,19 @@ Rebuild everything with `QT_QPA_PLATFORM=offscreen python docs/brand/build_logo.
 
 | Name | HEX | RGB | Use |
 |---|---|---|---|
-| Ring Blue | `#3D6FD9` | 61, 111, 217 | Symbol on light backgrounds; the app's light-theme accent |
-| Sky | `#7AA2F7` | 122, 162, 247 | Symbol on dark backgrounds; the app's dark-theme accent |
+| Ring Purple | `#9448D6` | 148, 72, 214 | Symbol on light backgrounds; the app's light-theme accent |
+| Lilac | `#C99CF5` | 201, 156, 245 | Symbol on dark backgrounds; the app's dark-theme accent |
 | Night | `#18191C` | 24, 25, 28 | App icon tile, dark backgrounds |
 | Ink | `#1D1C1A` | 29, 28, 26 | Wordmark on light backgrounds |
 | Paper | `#F6F5F2` | 246, 245, 242 | Light backgrounds |
 
-Ring Blue on white has a contrast ratio of 4.7:1 (4.3:1 on Paper) and Sky on Night 7.0:1, all
-above the WCAG 3:1 minimum for graphics. The provider colours used inside the app (orange, green, blue) belong to those
-providers and are never used for the QuotaRing logo.
+**Why purple:** the app's provider rings sit at orange (~15°), green (~165°) and blue (~217°) on the
+colour wheel. Purple (~272°) fills the largest free gap, so the logo and the app's accent never
+clash with a provider ring yet sit calmly on the warm neutral backgrounds. The provider colours
+belong to those providers and are never used for the QuotaRing logo.
+
+Ring Purple on white has a contrast ratio of 5.1:1 (4.6:1 on Paper) and Lilac on Night 8.0:1,
+all above the WCAG 3:1 minimum for graphics and 4.5:1 for text.
 
 ## Type
 
@@ -49,4 +53,4 @@ Use Noto Sans for text set next to the logo.
 - Recolour the symbol in provider colours or add gradients, shadows or outlines.
 - Close the ring, move the gap or change the tail's angle; the open quarter is the idea.
 - Stretch, rotate or set the wordmark in another typeface.
-- Place Ring Blue on mid-tone or busy backgrounds; use the white or black version instead.
+- Place Ring Purple on mid-tone or busy backgrounds; use the white or black version instead.

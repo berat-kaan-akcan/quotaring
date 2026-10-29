@@ -42,7 +42,7 @@ def make_icon() -> QIcon:
         def at(v):  # canvas coordinate -> pixel, as translate(124) scale(s) translate(-128) in the SVG
             return (124 + scale * (v - 128)) * k
         rr, ww = r * scale * k, w * scale * k
-        p.setPen(QPen(QColor("#7aa2f7"), ww, Qt.SolidLine, Qt.RoundCap))
+        p.setPen(QPen(QColor("#c99cf5"), ww, Qt.SolidLine, Qt.RoundCap))
         p.setBrush(Qt.NoBrush)
         p.drawArc(QRectF(at(c) - rr, at(c) - rr, 2 * rr, 2 * rr), 90 * 16, -270 * 16)
         d = 0.70710678

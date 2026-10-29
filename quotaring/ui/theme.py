@@ -25,9 +25,9 @@ class Palette:
 
 
 LIGHT = Palette("light", "#f6f5f2", "#ffffff", "#e3e0da", "#1d1c1a", "#6b6862", "#ebe8e2",
-                "#3d6fd9", "#2f8f5b", "#c98a12", "#cf4b3f", "#6b6862")
+                "#9448d6", "#2f8f5b", "#c98a12", "#cf4b3f", "#6b6862")
 DARK = Palette("dark", "#18191c", "#222428", "#33363c", "#ecebe8", "#9a9893", "#33363c",
-               "#7aa2f7", "#5cc28a", "#e0b04a", "#ef6f62", "#9a9893")
+               "#c99cf5", "#5cc28a", "#e0b04a", "#ef6f62", "#9a9893")
 
 def system_is_dark() -> bool:
     hints = QGuiApplication.styleHints()
