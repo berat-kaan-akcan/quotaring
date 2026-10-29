@@ -62,13 +62,13 @@ def demo() -> list[ProviderSnapshot]:
                          QuotaWindow("seven_day", "Weekly", 61.0, NOW + 3.2 * 24 * H, 10080)],
               plan="Max", updated_at=NOW - 40))
     codex = ProviderSnapshot("codex", "Codex",
-        local(90_000, [("gpt-5.5-codex", 31_000, 6_200)]),
+        local(90_000, [("gpt-5-codex", 31_000, 6_200)]),
         Quota(State.OK, [QuotaWindow("codex:primary", "5-hour session", 12.0, NOW + 4.1 * H, 300),
                          QuotaWindow("codex:secondary", "Weekly", 48.0, NOW + 5.5 * 24 * H, 10080)],
               plan="plus", updated_at=NOW - 40))
     ag = ProviderSnapshot("antigravity", "Antigravity",
-        local(40_000, [("gemini-3.8-pro", 12_000, 2_500)]),
-        Quota(State.OK, [QuotaWindow("antigravity:gemini", "Gemini 3.8 Pro", 22.0, NOW + 3.7 * H),
+        local(40_000, [("gemini-3-pro", 12_000, 2_500)]),
+        Quota(State.OK, [QuotaWindow("antigravity:gemini", "Gemini 3 Pro", 22.0, NOW + 3.7 * H),
                          QuotaWindow("antigravity:claude", "Claude Sonnet 5.5", 81.0, NOW + 1.2 * H)],
               plan="Google AI Pro", updated_at=NOW - 300))
     return [claude, codex, ag]

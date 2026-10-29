@@ -113,8 +113,13 @@ class JsonLineProcess:
 
     def kill(self) -> None:
         try:
+            if os.name == "nt":
+                # .cmd shims (npm installs) run the CLI as a grandchild that kill() would miss.
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.proc.pid)],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               creationflags=subprocess.CREATE_NO_WINDOW, timeout=5)
             self.proc.kill()
-        except OSError:
+        except (OSError, subprocess.SubprocessError):
             pass
 
     def _pump(self):
@@ -158,11 +163,19 @@ class JsonLineProcess:
                 self.proc.stdin.close()
             except OSError:
                 pass
-            self.proc.terminate()
+            try:
+                self.proc.wait(1)  # the CLIs exit at end of input
+                return
+            except subprocess.TimeoutExpired:
+                pass
+            if os.name == "nt":
+                self.kill()  # TerminateProcess would leave a .cmd shim's child running
+            else:
+                self.proc.terminate()
             try:
                 self.proc.wait(2)
             except subprocess.TimeoutExpired:
-                self.proc.kill()
+                self.kill()
                 self.proc.wait()
 
 

@@ -264,7 +264,8 @@ class ClaudeProvider(Provider):
     def _query(self, exe: str) -> dict:
         timeout = self.settings.timeout_seconds
         # Empty cwd + safe mode: no project hooks, tools or settings are loaded. No model turn.
-        with tempfile.TemporaryDirectory(prefix="quotaring-") as cwd:
+        # A child that outlives close() can keep the folder locked on Windows: not a query failure.
+        with tempfile.TemporaryDirectory(prefix="quotaring-", ignore_cleanup_errors=True) as cwd:
             proc = JsonLineProcess([
                 exe, "--safe-mode", "--print", "--verbose",
                 "--input-format", "stream-json", "--output-format", "stream-json",
