@@ -137,8 +137,16 @@ def test_alerts_once_per_window_and_shared(tmp_path):
     hi = QuotaWindow("seven_day", "Weekly", 92.0, NOW + 9e5, 10080)
     snap = ProviderSnapshot("claude", "Claude Code", LocalUsage(State.OK), Quota(State.OK, [lim, hi]))
     found = alerts.pending([snap], 90, NOW)
-    assert [a["title"] for a in found] == ["Claude Code: 5-hour session limit reached",
-                                          "Claude Code: Weekly at 92%"]
+    assert [a["title"] for a in found] == ["Claude Code · 5-hour limit reached", "Claude Code · Weekly limit: 8% left"]
+    assert found[0]["body"] == "Resets in 10m." and found[1]["body"].startswith("92% used · resets ")
+    i18n.set_language("tr")
+    tr_found = alerts.pending([snap], 90, NOW)
+    assert [a["title"] for a in tr_found] == ["Claude Code · 5 saatlik limit doldu", "Claude Code · Haftalık limit: %8 kaldı"]
+    assert tr_found[0]["body"] == "10dk sonra sıfırlanır." and tr_found[1]["body"].startswith("%92 kullanıldı · ")
+    assert alerts.limit_name("Weekly · Claude and GPT") == "Haftalık limit (Claude and GPT)"
+    assert alerts.limit_name("3-day") == "3 günlük limit"
+    i18n.set_language("en")
+    assert alerts.limit_name("5-hour session · Gemini") == "5-hour limit (Gemini)"
     first, second = alerts.Seen(tmp_path / "n.json"), alerts.Seen(tmp_path / "n.json")  # app + widget
     assert len(first.take_new(found, NOW)) == 2
     assert second.take_new(alerts.pending([snap], 90, NOW), NOW) == []

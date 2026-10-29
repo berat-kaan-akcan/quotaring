@@ -22,6 +22,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   instance and use the popup's colours.
 
 ### Changed
+- Notifications say what is left and when it comes back: "Claude Code · Weekly limit: 9% left",
+  "91% used · resets Mon 00:23 (3d 4h)"; "Claude Code · 5-hour limit reached", "Resets in 2h 12m."
 - The popup header carries the QuotaRing mark next to the name, in the accent colour.
 - Settings are a page of the popup (gear icon, or *Settings…* in the tray menu) instead of a
   separate window.
