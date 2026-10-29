@@ -12,6 +12,10 @@ if ($LASTEXITCODE -ne 0) { throw "tests failed" }
 $version = .\.venv\Scripts\python -c "import quotaring;print(quotaring.__version__)"
 New-Item -ItemType Directory -Force packaging\out | Out-Null
 Compress-Archive -Force dist\quotaring packaging\out\quotaring-$version-windows-x64.zip
-$iscc = Get-Command iscc.exe -ErrorAction SilentlyContinue
-if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
-if (Test-Path $iscc) { & $iscc /DAppVersion=$version packaging\windows\installer.iss } else { Write-Warning "Inno Setup not found: installer not built" }
+$iscc = (Get-Command iscc.exe -ErrorAction SilentlyContinue).Source
+# Inno Setup installs per machine (Program Files) or, as winget does by default, per user (LocalAppData).
+if (-not $iscc) {
+    $iscc = @("${env:ProgramFiles(x86)}", "$env:ProgramFiles", "$env:LOCALAPPDATA\Programs") |
+        ForEach-Object { Join-Path $_ "Inno Setup 6\ISCC.exe" } | Where-Object { Test-Path $_ } | Select-Object -First 1
+}
+if ($iscc) { & $iscc /DAppVersion=$version packaging\windows\installer.iss } else { Write-Warning "Inno Setup not found: installer not built" }

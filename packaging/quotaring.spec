@@ -24,6 +24,31 @@ a = Analysis(
     datas=[(str(ROOT / "quotaring" / "ui" / "qml"), "quotaring/ui/qml")],
     noarchive=False,
 )
+VERSION = None
+if sys.platform == "win32":
+    # Windows shows FileDescription as the notification sender and in Task Manager; without it, "quotaring.exe".
+    import re
+    from PyInstaller.utils.win32.versioninfo import (FixedFileInfo, StringFileInfo, StringStruct, StringTable,
+                                                     VarFileInfo, VarStruct, VSVersionInfo)
+    ver = re.search(r'__version__ = "([^"]+)"', (ROOT / "quotaring" / "__init__.py").read_text()).group(1)
+    nums = tuple((list(map(int, re.findall(r"\d+", ver)[:4])) + [0, 0, 0, 0])[:4])
+    VERSION = VSVersionInfo(
+        ffi=FixedFileInfo(filevers=nums, prodvers=nums),
+        kids=[
+            StringFileInfo([StringTable("040904B0", [
+                StringStruct("CompanyName", "Berat Kaan Akcan"),
+                StringStruct("FileDescription", "QuotaRing"),
+                StringStruct("FileVersion", ver),
+                StringStruct("InternalName", "quotaring"),
+                StringStruct("LegalCopyright", "MIT License"),
+                StringStruct("OriginalFilename", "quotaring.exe"),
+                StringStruct("ProductName", "QuotaRing"),
+                StringStruct("ProductVersion", ver),
+            ])]),
+            VarFileInfo([VarStruct("Translation", [0x0409, 1200])]),
+        ],
+    )
+
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
@@ -33,6 +58,7 @@ exe = EXE(
     name="quotaring",
     console=False,
     icon=ICON if sys.platform == "win32" else None,
+    version=VERSION,
     upx=False,
 )
 coll = COLLECT(exe, a.binaries, a.datas, name="quotaring", upx=False)
