@@ -251,6 +251,9 @@ Item {
         readonly property int hoverLit: rowHover >= 0 ? rowHover : (!multi && ring.hoverRing >= 0) ? ring.hoverRing : -1
         // What a single-ring card draws: the lit limit, else the tightest one.
         readonly property var ringWindow: multi ? (litWindow || tight) : null
+        // A model row (Antigravity) carries its 5-hour and weekly limits: both go on the rings.
+        readonly property var ringPair: ringWindow ? (ringWindow.pair || [ringWindow]) : []
+        readonly property var ringInner: ringPair.length > 1 ? ringPair[1] : null
 
         function shown(x) { return popup.remaining ? x.remaining : x.used; }
         function toneOf(x) {
@@ -282,15 +285,19 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 implicitWidth: 120
                 implicitHeight: 120
-                outer: card.multi ? card.shown(card.ringWindow) : card.first ? card.shown(card.first) : -1
-                inner: !card.multi && card.second ? card.shown(card.second) : -1
-                outerTag: card.multi ? card.ringWindow.tag : card.first ? card.first.tag : ""
-                innerTag: card.second ? card.second.tag : ""
+                outer: card.multi ? card.shown(card.ringPair[0]) : card.first ? card.shown(card.first) : -1
+                inner: card.multi ? (card.ringInner ? card.shown(card.ringInner) : -1)
+                    : card.second ? card.shown(card.second) : -1
+                outerTag: card.multi ? card.ringPair[0].tag : card.first ? card.first.tag : ""
+                innerTag: card.multi ? (card.ringInner ? card.ringInner.tag : "") : card.second ? card.second.tag : ""
                 tagBackground: popup.c.card
                 highlight: card.multi ? -1 : card.lit
-                outerColor: card.multi ? card.toneOf(card.ringWindow)
+                outerColor: card.multi ? card.toneOf(card.ringPair[0])
                     : card.first && card.first === card.tight ? card.tone : card.modelData.color
-                innerColor: card.second && card.second === card.tight ? card.tone : Qt.tint(popup.c.card, Qt.alpha(card.modelData.color, 0.6))
+                innerColor: card.multi && card.ringInner && T.levelOf(card.ringInner.remaining, card.ringInner.limited) !== "ok"
+                    ? card.toneOf(card.ringInner)
+                    : !card.multi && card.second && card.second === card.tight ? card.tone
+                    : Qt.tint(popup.c.card, Qt.alpha(card.modelData.color, 0.6))
                 track: popup.c.track
                 // Coloured only when the limit shown in the middle is low.
                 textColor: !showing || T.levelOf(showing.remaining, showing.limited) === "ok" ? popup.c.text : card.toneOf(showing)
@@ -303,7 +310,8 @@ Item {
                     : popup.remaining ? popup.v.text.left : popup.v.text.used
                 opacity: showing && showing.dim ? 0.5 : 1
 
-                readonly property var tipWindow: card.multi ? card.ringWindow : card.litWindow
+                readonly property var tipWindow: !card.multi ? card.litWindow
+                    : ring.hoverRing === 1 && card.ringInner ? card.ringInner : card.ringPair[0]
                 ToolTip.visible: !!tipWindow && ring.hoverRing >= 0
                 ToolTip.text: tipWindow ? tipWindow.label + ": " + card.valueText(tipWindow) + " · " + tipWindow.reset : ""
             }
@@ -380,6 +388,7 @@ Item {
                             spacing: 5
                             // The same tag as on the ring, in the ring's colour while it is on the ring.
                             Text {
+                                visible: !card.multi  // per-model rows are named in full
                                 Layout.preferredWidth: 18
                                 text: row.modelData.tag
                                 color: !row.onRing ? popup.c.muted
@@ -398,7 +407,7 @@ Item {
                         }
                         Text {
                             Layout.fillWidth: true
-                            Layout.leftMargin: 23
+                            Layout.leftMargin: card.multi ? 0 : 23
                             text: row.modelData.reset
                             wrapMode: Text.WordWrap
                             font.pointSize: 7.5

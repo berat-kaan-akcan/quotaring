@@ -64,6 +64,7 @@ TR = {
     "Antigravity IDE has not stored the account limits yet": "Antigravity IDE hesap limitlerini henüz kaydetmedi",
     "Open the Antigravity IDE to refresh its limits": "Limitleri yenilemek için Antigravity IDE'yi aç",
     "Antigravity IDE (local cache)": "Antigravity IDE (yerel önbellek)",
+    "Antigravity (running)": "Antigravity (çalışan)",
     "Antigravity IDE": "Antigravity IDE",
     "Notifications": "Bildirimler",
     "Close": "Kapat",

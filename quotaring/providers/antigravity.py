@@ -17,16 +17,30 @@ whose value is base64 of UserStatus). Only these fields are read:
   UserStatus.36 user_tier = {2 name}
 The same table holds the account's OAuth token and the record holds name and email; neither
 is read or kept — the query selects this one key and only the fields above are decoded.
+
+That cache only has one value per model. While Antigravity runs, its `agy --hub` language
+server answers on 127.0.0.1 (port and CSRF token are on its command line); its
+RetrieveUserQuotaSummary reply is what the "View Usage" panel shows: groups ("Gemini Models",
+"Claude and GPT models", "Gemini 4 Argon") of buckets {window: "5h" | "weekly",
+remainingFraction, resetTime}. That is preferred; the IDE cache is the fallback. Its
+GetUserStatus reply lists the models (only their labels are read); each is matched to its group
+through the group's name or its "Models within this group: Claude Opus, ..." description, so the
+popup can show models one by one while the limits stay one per group.
 """
 
 from __future__ import annotations
 
 import base64
+import json
 import logging
 import os
 import re
 import sqlite3
 import struct
+import subprocess
+import sys
+import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 from .. import paths, protowire as pw
@@ -39,6 +53,9 @@ SCAN_VERSION = 1
 USER_STATUS_KEY = "antigravityUnifiedStateSync.userStatus"
 # The IDE refreshes the cache while it runs; older than this, the values are shown as stale.
 QUOTA_STALE_AFTER = 6 * 3600
+QUOTA_SUMMARY_PATH = "/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary"
+USER_STATUS_PATH = "/exa.language_server_pb.LanguageServerService/GetUserStatus"
+BUCKET_WINDOWS = {"5h": ("5-hour session", 300), "weekly": ("Weekly", 10080)}
 
 
 def connect_ro(path: Path) -> sqlite3.Connection:
@@ -199,14 +216,118 @@ def parse_user_status(blob: bytes) -> tuple[list[QuotaWindow], str | None]:
     return windows, plan
 
 
+def _server_args(argv: list[str]) -> tuple[int, str] | None:
+    """(port, csrf token) from an `agy --hub` command line, else None."""
+    if not argv or not re.match(r"(agy|language_server)", os.path.basename(argv[0])):
+        return None
+    opts = dict(a[2:].split("=", 1) for a in argv[1:] if a.startswith("--") and "=" in a)
+    port, token = opts.get("hub-port", ""), opts.get("csrf_token", "")
+    return (int(port), token) if port.isdigit() and token else None
+
+
+def running_servers() -> list[tuple[int, str]]:
+    """Local Antigravity language servers that accept quota requests (Linux and macOS)."""
+    cmdlines: list[list[str]] = []
+    if sys.platform.startswith("linux"):
+        for d in Path("/proc").glob("[0-9]*"):
+            try:
+                cmdlines.append((d / "cmdline").read_bytes().decode("utf-8", "replace").split("\0"))
+            except OSError:
+                continue  # exited, or not ours
+    elif sys.platform == "darwin":
+        try:
+            out = subprocess.run(["ps", "-axww", "-o", "args="], capture_output=True, text=True, timeout=5).stdout
+        except (OSError, subprocess.SubprocessError):
+            return []
+        cmdlines = [line.split() for line in out.splitlines()]
+    return [s for s in map(_server_args, cmdlines) if s]
+
+
+def fetch(port: int, token: str, path: str) -> dict:
+    req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", data=b"{}", method="POST",
+                                 headers={"Content-Type": "application/json", "X-Codeium-Csrf-Token": token})
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # never via a proxy
+    with opener.open(req, timeout=3) as r:
+        return json.loads(r.read())
+
+
+def _epoch(iso) -> float | None:
+    if not isinstance(iso, str):
+        return None
+    try:
+        return datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def _groups(data) -> list[dict]:
+    groups = (data.get("response") or {}).get("groups") if isinstance(data, dict) else None
+    return [g for g in groups if isinstance(g, dict)] if isinstance(groups, list) else []
+
+
+def _group_name(group: dict) -> str:
+    return re.sub(r"\s+models$", "", str(group.get("displayName") or ""), flags=re.I).strip()
+
+
+def parse_quota_summary(data: dict) -> list[QuotaWindow]:
+    """'Gemini Models' 5h/weekly buckets -> '5-hour session · Gemini', 'Weekly · Gemini', ..."""
+    windows = []
+    for group in _groups(data):
+        name = _group_name(group)
+        buckets = [b for b in group.get("buckets") or [] if isinstance(b, dict) and b.get("window") in BUCKET_WINDOWS]
+        buckets.sort(key=lambda b: BUCKET_WINDOWS[b["window"]][1])  # 5 hours before weekly
+        for b in buckets:
+            frac = b.get("remainingFraction", 0.0)  # proto3 JSON omits zero
+            if not isinstance(frac, (int, float)) or not name:
+                continue
+            label, minutes = BUCKET_WINDOWS[b["window"]]
+            windows.append(QuotaWindow(f"antigravity:{b.get('bucketId') or name + ':' + b['window']}",
+                                       f"{label} · {name}", round((1 - max(0.0, min(1.0, frac))) * 100, 1),
+                                       _epoch(b.get("resetTime")), minutes))
+    return windows
+
+
+def model_families(status: dict) -> list[str]:
+    """Model families in the IDE's order from a GetUserStatus reply; nothing else is read."""
+    configs = (((status or {}).get("userStatus") or {}).get("cascadeModelConfigData") or {}).get("clientModelConfigs")
+    out: list[str] = []
+    for c in configs if isinstance(configs, list) else []:
+        label = c.get("label") if isinstance(c, dict) else None
+        if isinstance(label, str) and _family(label) not in out:
+            out.append(_family(label))
+    return out
+
+
+def group_models(families: list[str], data: dict, windows: list[QuotaWindow]) -> list[dict]:
+    """[{"name": "Claude Opus 5.5", "windows": [5h key, weekly key]}, ...] for models with a group."""
+    groups = []
+    for group in _groups(data):
+        name = _group_name(group)
+        keys = [w.key for w in windows if w.label.endswith(f" · {name}")]
+        m = re.search(r"within this group:\s*(.+)", str(group.get("description") or ""), re.I)
+        members = [set(x.lower().split()) for x in m.group(1).rstrip(". ").split(",")] if m else []
+        if name and keys:
+            groups.append((name, members, keys))
+    out = []
+    for fam in families:
+        words = set(fam.lower().split())
+        # Its own group ("Gemini 4 Argon") first, then a listed member whose words it has ("Gemini Flash").
+        hit = next((g for g in groups if g[0].lower() == fam.lower()), None) or \
+            next((g for g in groups if any(mem and mem <= words for mem in g[1])), None)
+        if hit:
+            out.append({"name": fam, "windows": hit[2]})
+    return out
+
+
 class AntigravityProvider(Provider):
     id = "antigravity"
     name = "Antigravity"
 
-    def __init__(self, settings, roots=None, state_dbs=None):
+    def __init__(self, settings, roots=None, state_dbs=None, servers=None):
         super().__init__(settings)
         self.roots = roots
         self.state_dbs = state_dbs
+        self.servers = servers
         self._cache: dict | None = None
 
     def _roots(self) -> list[Path]:
@@ -258,9 +379,30 @@ class AntigravityProvider(Provider):
         return LocalUsage(State.OK, aggregate(events, now), source=str(conv_dirs[0].parent.parent),
                           exact=True, files=len(live), detail=detail, daily=daily_totals(events, now))
 
+    def _live_quota(self) -> tuple[list[QuotaWindow], list[dict]]:
+        """Group limits and the models in each, from a running language server."""
+        for port, token in self.servers if self.servers is not None else running_servers():
+            try:
+                summary = fetch(port, token, QUOTA_SUMMARY_PATH)
+                windows = parse_quota_summary(summary)
+                if not windows:
+                    continue
+                families = model_families(fetch(port, token, USER_STATUS_PATH))
+            except (OSError, ValueError) as e:
+                log.info("antigravity: quota from port %s failed (%s)", port, type(e).__name__)
+                continue
+            return windows, group_models(families, summary, windows)
+        return [], []
+
     def _collect_quota(self, now: float) -> Quota:
         dbs = [p for p in (self.state_dbs if self.state_dbs is not None else paths.antigravity_ide_state_dbs())
                if p.is_file()]
+        live, models = self._live_quota()
+        if live:
+            blob = read_user_status(max(dbs, key=os.path.getmtime)) if dbs else None
+            plan = parse_user_status(blob)[1] if blob else None  # the summary carries no plan name
+            return Quota(State.OK, live, plan=plan, source="Antigravity (running)", updated_at=now,
+                         extra={"models": models} if models else {})
         if not dbs:
             return Quota(State.UNAVAILABLE, source="none",
                          detail="Open the Antigravity IDE once: it stores the account limits locally")

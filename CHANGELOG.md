@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+- Antigravity: while Antigravity runs, limits come from its local language server — the same
+  groups as its "View Usage" panel (Gemini, Claude and GPT: 5 hours and weekly; Gemini 4 Argon:
+  weekly). Each model keeps its own row; the selected (or tightest) model shows its group's
+  5-hour limit on the outer ring and the weekly one on the inner ring. The IDE's account-status
+  cache stays as the fallback. Per-model rows no longer carry initials.
+
 ## [0.1.0] - 2026-10-29
 
 First public release.

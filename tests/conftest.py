@@ -32,6 +32,8 @@ def isolated_dirs(tmp_path, monkeypatch):
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "localappdata"))
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     monkeypatch.delenv("CODEX_HOME", raising=False)
+    # A running Antigravity is found by process, not by folder: never ask the real one.
+    monkeypatch.setattr("quotaring.providers.antigravity.running_servers", lambda: [])
     return tmp_path
 
 

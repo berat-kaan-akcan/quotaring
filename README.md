@@ -78,7 +78,7 @@ paused, not installed — and stale values are marked with when they were last u
 |---|---|---|
 | Claude Code | `~/.claude/projects/**/*.jsonl` (exact counts per API response, deduplicated) | 5-hour and weekly limits (plus per-model weekly caps and the weekly share of Claude Code / claude.ai Chats / Cowork) via the `claude` CLI's `get_usage` control request. **Experimental and undocumented**; may break with a Claude Code update. Verified with Claude Code 2.1.312. |
 | Codex | `~/.codex/sessions` and `archived_sessions` rollout logs | ChatGPT-plan limits via `codex app-server` → `account/rateLimits/read` (documented). API-key accounts show *Unsupported*; API billing is never shown as plan quota. **Not tested on a real Codex install** (none on the dev machine). |
-| Antigravity | `~/.gemini/antigravity{,-ide,-cli}/conversations/*.db` — token counts stored per model response (undocumented internal format, opened read-only) | Per-model limits (remaining, reset) from the Antigravity IDE's local cache of the account status (undocumented; refreshed while the IDE runs, shown *stale* after 6 h). Covers the `agy` CLI too — same account. |
+| Antigravity | `~/.gemini/antigravity{,-ide,-cli}/conversations/*.db` — token counts stored per model response (undocumented internal format, opened read-only) | While Antigravity runs: the "View Usage" groups (Gemini, Claude and GPT: 5-hour and weekly; Gemini 4 Argon: weekly) from its `agy --hub` language server on 127.0.0.1 (port and CSRF token read from its command line; Linux and macOS). Otherwise per-model limits from the Antigravity IDE's local cache of the account status (undocumented; shown *stale* after 6 h). Covers the `agy` CLI too — same account. |
 
 The weekly Claude limit is account-wide: it includes claude.ai web/desktop chats. Local Claude Code logs do **not** contain claude.ai conversations.
 Quota sources are listed per provider above; undocumented ones may break with an update.
@@ -175,6 +175,9 @@ Toggle **Start at login** in Settings.
       sending only the `initialize` and `get_usage` control requests (no model turn, no tools, no hooks).
     - `codex app-server`, sending `initialize`, `account/read` (without token refresh) and
       `account/rateLimits/read`.
+- Antigravity limits come from its own language server on 127.0.0.1 (`agy --hub`; port and CSRF
+  token from its command line) while it runs: `RetrieveUserQuotaSummary` and, for model names
+  only, `GetUserStatus`. Nothing from it is stored except the limits.
 - The CLIs' stderr is discarded. Every query has a timeout and at most 3 attempts with backoff;
   rate limiting (HTTP 429) backs the quota check off to at least 15 minutes.
 - Logs contain paths and error types only. `--debug` adds tracebacks.

@@ -52,6 +52,25 @@ def _initials(label: str) -> str:
     return "".join(w[0].upper() for w in words[:2]) or label[:2]
 
 
+def _model_rows(q, windows: list[dict]) -> list[dict]:
+    """Antigravity: one row per model, its group's limits as the ring pair (5 hours, weekly).
+
+    A row reads as its tightest limit; the limits themselves stay one per group in the quota,
+    so alerts are not repeated for every model that shares them.
+    """
+    by_key = {w.key: v for w, v in zip(q.windows, windows)}
+    rows = []
+    for m in q.extra.get("models") or []:
+        pair = [by_key[k] for k in m.get("windows", []) if k in by_key]
+        if not pair:
+            continue
+        live = [w for w in pair if not w["dim"]] or pair
+        tight = min(live, key=lambda w: (not w["limited"], w["remaining"]))
+        rows.append({**tight, "label": m["name"], "tag": _initials(m["name"]),
+                     "reset": f"{tight['tag']} · {tight['reset']}", "pair": pair})
+    return rows
+
+
 def limits_view(snaps, now: float) -> list[dict]:
     out = []
     for s in snaps:
@@ -74,6 +93,9 @@ def limits_view(snaps, now: float) -> list[dict]:
                     "used": round(used), "remaining": round(max(0.0, 100 - used)),
                     "limited": limited, "dim": not limited and (passed or q.state == State.STALE),
                     "reset": fmt.resets(w.resets_at, now)})
+            models = _model_rows(q, item["windows"])
+            if models:
+                item["windows"] = models
             if q.state == State.STALE:
                 item["note"] = tr("updated {age}").format(age=fmt.age(q.updated_at, now))
         else:

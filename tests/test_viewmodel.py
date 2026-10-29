@@ -89,3 +89,23 @@ def test_tokens_view_groups_and_periods():
     assert [m["name"] for m in all7["models"]] == ["model-a", "model-b"]
     assert len(t["data"]["claude"]["daily"]) == 7
     assert json.loads(json.dumps(viewmodel.widget_view([snap()], NOW)))["ring"]["available"]
+
+
+def test_antigravity_models_one_row_each_with_ring_pair():
+    i18n.set_language("en")
+    windows = [QuotaWindow("g5", "5-hour session · Gemini", 10.0, NOW + 3600, 300),
+               QuotaWindow("gw", "Weekly · Gemini", 1.0, NOW + 5 * 86400, 10080),
+               QuotaWindow("p5", "5-hour session · Claude and GPT", 0.0, NOW + 3600, 300),
+               QuotaWindow("pw", "Weekly · Claude and GPT", 12.0, NOW + 5 * 86400, 10080),
+               QuotaWindow("aw", "Weekly · Gemini 4 Argon", 22.0, NOW + 5 * 86400, 10080)]
+    q = Quota(State.OK, windows, extra={"models": [
+        {"name": "Gemini 4 Argon", "windows": ["aw"]}, {"name": "Gemini 3.8 Flash", "windows": ["g5", "gw"]},
+        {"name": "Claude Opus 5.5", "windows": ["p5", "pw"]}, {"name": "Claude Sonnet 5.5", "windows": ["p5", "pw"]}]})
+    item = viewmodel.limits_view([ProviderSnapshot("antigravity", "Antigravity", LocalUsage(State.OK), q)], NOW)[0]
+    rows = item["windows"]
+    assert [(r["label"], r["tag"], r["remaining"]) for r in rows] == [
+        ("Gemini 4 Argon", "GA", 78), ("Gemini 3.8 Flash", "GF", 90), ("Claude Opus 5.5", "CO", 88),
+        ("Claude Sonnet 5.5", "CS", 88)]
+    assert [w["tag"] for w in rows[1]["pair"]] == ["5h", "W"] and len(rows[0]["pair"]) == 1
+    assert rows[2]["reset"].startswith("W · ")
+    json.dumps(item)

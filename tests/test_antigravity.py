@@ -248,3 +248,82 @@ def test_quota_cache_old_or_missing(tmp_path):
     os.utime(db, (old, old))
     q = AntigravityProvider(Settings(), roots=[], state_dbs=[db])._collect_quota(now)
     assert q.state == State.STALE and q.updated_at == old and q.windows[0].used_percent == 50.0
+
+
+SUMMARY = {"response": {"groups": [
+    {"displayName": "Gemini Models", "buckets": [
+        {"bucketId": "gemini-weekly", "window": "weekly", "remainingFraction": 0.99, "resetTime": "2026-11-04T09:25:36Z"},
+        {"bucketId": "gemini-5h", "window": "5h", "remainingFraction": 0.75, "resetTime": "2026-10-29T16:50:21Z"}]},
+    {"displayName": "Claude and GPT models", "buckets": [
+        {"bucketId": "3p-5h", "window": "5h", "resetTime": "2026-10-29T19:21:04Z"},
+        {"bucketId": "3p-daily", "window": "daily", "remainingFraction": 0.5}]},
+    {"displayName": "Gemini 4 Argon", "buckets": [
+        {"bucketId": "gemini-argon-wtu-weekly", "window": "weekly", "remainingFraction": 0.78}]},
+]}}
+
+
+def test_parse_quota_summary_groups_and_windows():
+    from quotaring.providers.antigravity import parse_quota_summary
+    ws = parse_quota_summary(SUMMARY)
+    assert [(w.label, w.used_percent, w.window_minutes) for w in ws] == [
+        ("5-hour session · Gemini", 25.0, 300), ("Weekly · Gemini", 1.0, 10080),
+        ("5-hour session · Claude and GPT", 100.0, 300),  # proto3 JSON leaves out a zero fraction
+        ("Weekly · Gemini 4 Argon", 22.0, 10080)]
+    assert ws[0].key == "antigravity:gemini-5h" and ws[0].resets_at == 1793292621.0
+    assert ws[3].resets_at is None
+    assert parse_quota_summary({}) == [] and parse_quota_summary({"response": {"groups": "x"}}) == []
+
+
+def test_server_args_from_command_line():
+    from quotaring.providers.antigravity import _server_args
+    assert _server_args(["/home/u/.gemini/bin/agy", "--hub", "--hub-port=46579", "--csrf_token=abc"]) == (46579, "abc")
+    assert _server_args(["agy", "--mode", "auto"]) is None
+    assert _server_args(["/usr/bin/python", "--hub-port=1", "--csrf_token=abc"]) is None
+    assert _server_args([""]) is None
+
+
+def test_quota_prefers_running_server(tmp_path, monkeypatch):
+    from quotaring.providers import antigravity
+    from quotaring.settings import Settings
+    db = tmp_path / "state.vscdb"
+    _state_db(db, _pb(33, _pb(1, _model("Gemini 3.8 Flash (High)", 0.5, int(NOW) + 60)))
+              + _pb(36, _pb(2, b"Google AI Pro")))
+    calls = []
+
+    def fetch(port, token, path):
+        calls.append((port, token))
+        if port == 1:
+            raise OSError("refused")
+        return SUMMARY if path == antigravity.QUOTA_SUMMARY_PATH else STATUS
+
+    monkeypatch.setattr(antigravity, "fetch", fetch)
+    p = antigravity.AntigravityProvider(Settings(), roots=[], state_dbs=[db], servers=[(1, "a"), (2, "b")])
+    q = p._collect_quota(NOW)
+    assert calls == [(1, "a"), (2, "b"), (2, "b")]
+    assert q.state == State.OK and q.plan == "Google AI Pro" and q.updated_at == NOW
+    assert "Weekly · Gemini 4 Argon" in [w.label for w in q.windows]
+    assert [m["name"] for m in q.extra["models"]] == ["Gemini 4 Argon"]  # no descriptions: by name only
+    monkeypatch.setattr(antigravity, "fetch", lambda port, token, path: {})
+    q = p._collect_quota(NOW)  # server says nothing useful: the IDE cache
+    assert [w.label for w in q.windows] == ["Gemini 3.8 Flash"] and q.extra == {}
+
+
+STATUS = {"userStatus": {"email": "someone@example.com", "cascadeModelConfigData": {"clientModelConfigs": [
+    {"label": "Gemini 4 Argon (Medium)"}, {"label": "Gemini 4 Argon (High)"}, {"label": "Gemini 3.8 Flash (High)"},
+    {"label": "Claude Opus 5.5 (Low)"}, {"label": "Mystery Model"}]}}}
+
+
+def test_models_matched_to_their_group():
+    from quotaring.providers.antigravity import group_models, model_families, parse_quota_summary
+    summary = {"response": {"groups": [
+        dict(SUMMARY["response"]["groups"][0], description="Models within this group: Gemini Flash, Gemini Pro"),
+        dict(SUMMARY["response"]["groups"][1], description="Models within this group: Claude Opus, Claude Sonnet, GPT-OSS"),
+        dict(SUMMARY["response"]["groups"][2], description="For paid Pro plans, Argon quota is separate.")]}}
+    families = model_families(STATUS)
+    assert families == ["Gemini 4 Argon", "Gemini 3.8 Flash", "Claude Opus 5.5", "Mystery Model"]
+    models = group_models(families, summary, parse_quota_summary(summary))
+    assert models == [
+        {"name": "Gemini 4 Argon", "windows": ["antigravity:gemini-argon-wtu-weekly"]},  # its own group, not Gemini's
+        {"name": "Gemini 3.8 Flash", "windows": ["antigravity:gemini-5h", "antigravity:gemini-weekly"]},
+        {"name": "Claude Opus 5.5", "windows": ["antigravity:3p-5h"]}]
+    assert model_families({}) == [] and model_families({"userStatus": {"cascadeModelConfigData": {"clientModelConfigs": 3}}}) == []
