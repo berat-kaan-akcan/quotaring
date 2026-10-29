@@ -112,11 +112,17 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: gauge.label !== ""
+            // Inside the inner ring: long model names shrink a little, then elide.
+            width: Math.min(implicitWidth, 2 * (gauge.innerRadius - gauge.lw) - 4)
+            horizontalAlignment: Text.AlignHCenter
             text: gauge.label
             textFormat: Text.PlainText
             color: gauge.textColor
             opacity: 0.85
             font.pixelSize: gauge.width * 0.085
+            fontSizeMode: Text.HorizontalFit
+            minimumPixelSize: gauge.width * 0.07
+            elide: Text.ElideRight
             font.weight: Font.DemiBold
         }
         Text {

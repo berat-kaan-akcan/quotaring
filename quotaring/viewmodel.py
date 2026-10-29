@@ -27,11 +27,14 @@ GEMINI_WORDS = {"flash", "pro", "argon", "lite", "ultra", "nano"}
 
 
 def model_name(model: str) -> str:
-    """'claude-opus-5-5' -> 'Opus 5.5', 'gemini-3.8-flash-n' -> 'Gemini 3.8 Flash'; others unchanged."""
+    """'claude-opus-5-5' -> 'Opus 5.5', 'gemini-3.8-flash-n' -> 'Gemini 3.8 Flash',
+    'gpt-5.5-codex' -> 'GPT-5.5-Codex'; others unchanged."""
     if model.startswith("gemini-"):
         # Antigravity tags variants ("-n", "-trial", "-default"); they are one model to the user.
         keep = [p for p in model[7:].split("-") if re.fullmatch(r"\d+(\.\d+)*", p) or p in GEMINI_WORDS]
         return " ".join(["Gemini"] + [p.capitalize() for p in keep])
+    if model.startswith("gpt-"):
+        return "GPT-" + "-".join(p if p[:1].isdigit() else p.capitalize() for p in model[4:].split("-"))
     if not model.startswith("claude-"):
         return model
     parts = [p for p in model[7:].split("-")

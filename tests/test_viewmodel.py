@@ -55,7 +55,8 @@ def test_states_hidden_stale_and_unavailable():
 def test_model_name():
     assert viewmodel.model_name("claude-opus-5-5") == "Opus 5.5"
     assert viewmodel.model_name("claude-sonnet-4-5-20250929") == "Sonnet 4.5"
-    assert viewmodel.model_name("gpt-5.1-codex") == "gpt-5.1-codex"
+    assert viewmodel.model_name("gpt-5.1-codex") == "GPT-5.1-Codex"
+    assert viewmodel.model_name("o3-mini") == "o3-mini"
     assert viewmodel.model_name("claude-opus-5-5-medium") == "Opus 5.5"
     assert viewmodel.model_name("gemini-3.8-flash-n") == "Gemini 3.8 Flash"
     assert viewmodel.model_name("gemini-4-argon-trial") == "Gemini 4 Argon"

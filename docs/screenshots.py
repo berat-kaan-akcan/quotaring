@@ -42,35 +42,51 @@ NOW = time.time()
 H = 3600
 
 
-def local(daily_scale: int, models: list[tuple[str, int, int]]) -> LocalUsage:
-    events = [UsageEvent(NOW - (i + 1) * 1800 - day * 86400, m,
-                         Tokens(input=inp * k, output=out * k, cache_read=inp * k * 6))
-              for day, k in enumerate((1, 3, 2, 4, 2, 5, 3))
-              for i, (m, inp, out) in enumerate(models)]
-    days = time.localtime(NOW)
+DAY_WEIGHTS = (5, 3, 6, 2, 4, 7, 3)  # today first: a believable week with busy and quiet days
+
+
+def local(models: list[tuple[str, int, int, int, int]]) -> LocalUsage:
+    """models: (id, input, output, cache read, cache write) per busy-day unit."""
+    events = [UsageEvent(NOW - (i + 1) * 1200 - day * 86400, m,
+                         Tokens(input=inp * k, output=out * k, cache_read=cr * k, cache_write=cw * k))
+              for day, k in enumerate(DAY_WEIGHTS)
+              for i, (m, inp, out, cr, cw) in enumerate(models)]
+    per_day = sum(inp + out + cr + cw for _m, inp, out, cr, cw in models)
     daily = []
     for d in range(13, -1, -1):
         t = time.localtime(NOW - d * 86400)
-        daily.append([time.strftime("%Y-%m-%d", t), daily_scale * (3 + (d * 7 + days.tm_mday) % 9)])
+        daily.append([time.strftime("%Y-%m-%d", t), per_day * (DAY_WEIGHTS[d] if d < 7 else 2)])
     return LocalUsage(State.OK, aggregate(events, NOW), updated_at=NOW - 20, files=42, daily=daily)
 
 
 def demo() -> list[ProviderSnapshot]:
     claude = ProviderSnapshot("claude", "Claude Code",
-        local(180_000, [("claude-opus-5-5", 48_000, 9_100), ("claude-sonnet-5-5", 22_000, 4_300)]),
+        local([("claude-opus-5-5", 2_400, 410_000, 9_800_000, 260_000),
+               ("claude-sonnet-5-5", 900, 120_000, 2_600_000, 90_000)]),
         Quota(State.OK, [QuotaWindow("five_hour", "5-hour session", 34.0, NOW + 2.6 * H, 300),
                          QuotaWindow("seven_day", "Weekly", 61.0, NOW + 3.2 * 24 * H, 10080)],
               plan="Max", updated_at=NOW - 40))
     codex = ProviderSnapshot("codex", "Codex",
-        local(90_000, [("gpt-5-codex", 31_000, 6_200)]),
+        local([("gpt-5.5", 380_000, 95_000, 2_100_000, 0)]),
         Quota(State.OK, [QuotaWindow("codex:primary", "5-hour session", 12.0, NOW + 4.1 * H, 300),
                          QuotaWindow("codex:secondary", "Weekly", 48.0, NOW + 5.5 * 24 * H, 10080)],
               plan="plus", updated_at=NOW - 40))
+    # Antigravity as its running language server reports it: limits per group, models per group.
+    ag_windows = [QuotaWindow("antigravity:gemini-5h", "5-hour session · Gemini", 9.0, NOW + 3.7 * H, 300),
+                  QuotaWindow("antigravity:gemini-weekly", "Weekly · Gemini", 27.0, NOW + 4.4 * 24 * H, 10080),
+                  QuotaWindow("antigravity:3p-5h", "5-hour session · Claude and GPT", 18.0, NOW + 1.2 * H, 300),
+                  QuotaWindow("antigravity:3p-weekly", "Weekly · Claude and GPT", 44.0, NOW + 5.1 * 24 * H, 10080),
+                  QuotaWindow("antigravity:argon-weekly", "Weekly · Gemini 4 Argon", 31.0, NOW + 3.9 * 24 * H, 10080)]
+    pair = {"g": ["antigravity:gemini-5h", "antigravity:gemini-weekly"],
+            "p": ["antigravity:3p-5h", "antigravity:3p-weekly"]}
     ag = ProviderSnapshot("antigravity", "Antigravity",
-        local(40_000, [("gemini-3-pro", 12_000, 2_500)]),
-        Quota(State.OK, [QuotaWindow("antigravity:gemini", "Gemini 3 Pro", 22.0, NOW + 3.7 * H),
-                         QuotaWindow("antigravity:claude", "Claude Sonnet 5.5", 81.0, NOW + 1.2 * H)],
-              plan="Google AI Pro", updated_at=NOW - 300))
+        local([("gemini-3.8-flash-n", 260_000, 14_000, 900_000, 0),
+               ("gemini-4-argon-trial", 90_000, 12_000, 700_000, 0)]),
+        Quota(State.OK, ag_windows, plan="Google AI Pro", updated_at=NOW - 30, extra={"models": [
+            {"name": "Gemini 4 Argon", "windows": ["antigravity:argon-weekly"]},
+            {"name": "Gemini 3.8 Flash", "windows": pair["g"]},
+            {"name": "Claude Opus 5.5", "windows": pair["p"]},
+            {"name": "Claude Sonnet 5.5", "windows": pair["p"]}]}))
     return [claude, codex, ag]
 
 
@@ -80,16 +96,31 @@ def settle(app, n=40):
         time.sleep(0.01)
 
 
-def popup_shot(app, palette: theme.Palette, name: str, tokens: str = "all") -> Popup:
+def make_popup(palette: theme.Palette):
     settings = Settings()
+    settings.pinned["antigravity"] = "Gemini 3.8 Flash"  # a model with both rings
     backend = Backend(settings, palette)
+    backend.set_settings_form(settings_form.form(settings, True))
     popup = Popup(backend, docked=False)
     popup.show()
     backend.set_view(viewmodel.widget_view(demo(), NOW))
-    popup.window.findChild(QObject, "popupContent").setProperty("tokGroup", tokens)
+    return popup
+
+
+def shot(app, popup: Popup, name: str, page: str, full: bool = True, **props):
+    """One page of the popup. `full` shows the whole page instead of the scrolling 660 px."""
+    content = popup.window.findChild(QObject, "popupContent")
+    if page == "settings":
+        popup.open_settings()
+    else:
+        content.setProperty("page", page)
+    for k, v in props.items():
+        content.setProperty(k, v)
     settle(app)
+    if full:
+        popup.window.setHeight(int(content.property("implicitHeight")))
+        settle(app)
     popup.window.grabWindow().save(str(OUT / name))
-    return popup, backend, settings
 
 
 def tray_strip(palette: theme.Palette, name: str):
@@ -118,12 +149,13 @@ def main():
     app = QApplication(sys.argv)
     font = QFont(app.font())
     app.setFont(font)
-    keep = [popup_shot(app, theme.DARK, "popup-dark.png"), popup_shot(app, theme.LIGHT, "popup-light.png", tokens="claude")]
-    popup, backend, settings = keep[0]
-    backend.set_settings_form(settings_form.form(settings, True))
-    popup.open_settings()
-    settle(app)
-    popup.settings_window.grabWindow().save(str(OUT / "settings-dark.png"))
+    dark, light = make_popup(theme.DARK), make_popup(theme.LIGHT)
+    shot(app, dark, "limits-dark.png", "limits")
+    shot(app, light, "limits-light.png", "limits")
+    shot(app, dark, "tokens-dark.png", "tokens", tokPeriod="7d")
+    shot(app, light, "tokens-light.png", "tokens", tokPeriod="7d")
+    shot(app, dark, "settings-dark.png", "settings")
+    shot(app, light, "settings-light.png", "settings")
     tray_strip(theme.DARK, "tray-dark.png")
     for f in sorted(OUT.glob("*.png")):
         print(f.relative_to(ROOT), QImage(str(f)).size().toTuple())
