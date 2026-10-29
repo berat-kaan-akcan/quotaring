@@ -122,7 +122,7 @@ class Pill(QLabel):
 
 
 def _section(text: str) -> QLabel:
-    lab = QLabel(tr(text).upper())
+    lab = QLabel(tr(text))
     lab.setObjectName("section")
     return lab
 
@@ -164,7 +164,7 @@ class ProviderCard(QFrame):
         lay.addLayout(head)
 
         # Account quota
-        self.quota_title = _section("Account quota")
+        self.quota_title = _section("Limits")
         lay.addWidget(self.quota_title)
         self.quota_box = QWidget()
         self.quota_grid = QGridLayout(self.quota_box)
@@ -178,7 +178,7 @@ class ProviderCard(QFrame):
         lay.addWidget(self.breakdown)
 
         # Local activity
-        self.local_title = _section("Local activity · recorded tokens")
+        self.local_title = _section("Tokens")
         lay.addWidget(self.local_title)
         row = QHBoxLayout()
         row.setSpacing(14)
@@ -283,6 +283,7 @@ class ProviderCard(QFrame):
                 limited = w.active_limit(now)
                 bar.set(w.used_percent, not limited and (stale or (w.resets_at is not None and w.resets_at <= now)))
                 pct = QLabel(fmt.window_pct(w, now))
+                pct.setStyleSheet("font-weight: 600;")
                 if limited:
                     pct.setStyleSheet(f"color: {self.palette_.bad}; font-weight: 600;")
                 pct.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -301,18 +302,19 @@ class ProviderCard(QFrame):
                                                                           detail=tr(q.detail)))
         elif q.state != State.OK:
             msg.append(fmt.state_text(q.state) + (f" — {tr(q.detail)}" if q.detail else ""))
-        elif self.expanded and q.source:
-            msg.append(tr("Source: {source}").format(source=tr(q.source))
-                       + ("" if q.documented else tr(" — may change without notice")))
         self.quota_msg.setText("  ".join(msg))
         self.quota_msg.setVisible(bool(msg))
+        # Details live in the tooltip; the card itself stays numbers-only.
+        tip = []
+        if q.source and has_windows:
+            tip.append(tr("Source: {source}").format(source=tr(q.source))
+                       + ("" if q.documented else tr(" — may change without notice")))
         rows = q.extra.get("weekly_breakdown") if q.extra else None
-        if self.expanded and rows and has_windows:
-            self.breakdown.setText(tr("Weekly share: ") + " · ".join(
+        if rows and has_windows:
+            tip.append(tr("Weekly share: ") + " · ".join(
                 f"{tr(r['label'])} {fmt.pct(r['percent'])}" for r in rows))
-            self.breakdown.show()
-        else:
-            self.breakdown.hide()
+        self.quota_title.setToolTip("\n".join(tip))
+        self.breakdown.hide()
 
         # Local activity
         has_local = loc.state in (State.OK, State.STALE) and bool(loc.periods)
@@ -335,18 +337,16 @@ class ProviderCard(QFrame):
 
         show_chart = has_local and self.expanded and bool(loc.daily)
         self.chart.setVisible(show_chart)
-        self.chart_label.setVisible(show_chart)
+        self.chart_label.hide()  # values are on hover; the axis needs no caption
         if show_chart:
             self.chart.palette_ = self.palette_
             self.chart.set_days(loc.daily)
             self.chart_label.setText(tr("Daily recorded tokens, last {n} days ({start} → today) · hover for values")
                                      .format(n=len(loc.daily), start=loc.daily[0][0][5:]))
         self._fill_table(loc if has_local and self.expanded else None)
-        foot = [fmt.updated(loc.updated_at, now)]
-        if has_local and self.expanded:
-            foot.append(tr("{n} files").format(n=loc.files) + " · "
-                        + tr("exact counts from local records" if loc.exact else "estimated"))
-        self.footer.setText(" · ".join(foot))
+        self.footer.setText(fmt.updated(loc.updated_at, now))
+        self.footer.setToolTip(tr("{n} files").format(n=loc.files) + " · "
+                               + tr("exact counts from local records" if loc.exact else "estimated"))
 
     @staticmethod
     def _tooltip(per) -> str:

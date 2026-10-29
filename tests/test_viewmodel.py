@@ -78,3 +78,42 @@ def test_widget_json_command_runs_isolated(capsys):
     assert out["headline"] == ""
     assert {p["id"] for p in out["providers"]} == {"claude", "codex", "antigravity"}
     assert all(p["quota"] == [] for p in out["providers"])
+
+
+def test_model_name():
+    assert viewmodel.model_name("claude-opus-5-5") == "Opus 5.5"
+    assert viewmodel.model_name("claude-sonnet-4-5-20250929") == "Sonnet 4.5"
+    assert viewmodel.model_name("gpt-5.1-codex") == "gpt-5.1-codex"
+
+
+def test_ring_is_tightest_current_limit():
+    i18n.set_language("en")
+    r = viewmodel.ring([snap()], NOW)
+    assert r == {"available": True, "used": 41, "remaining": 59, "level": "ok", "limited": False,
+                 "label": "Claude Code · 5-hour session"}
+    low = snap(windows=[QuotaWindow("w", "Weekly", 93.0, NOW + 60, 10080)])
+    assert viewmodel.ring([low], NOW)["level"] == "bad"
+    lim = snap(windows=[QuotaWindow("five_hour", "5-hour session", 20.0, NOW + 60, 300, limited=True)])
+    assert viewmodel.ring([lim], NOW)["remaining"] == 0 and viewmodel.ring([lim], NOW)["limited"]
+    assert not viewmodel.ring([snap(quota=State.UNAVAILABLE)], NOW)["available"]
+
+
+def test_limits_view_is_short():
+    i18n.set_language("en")
+    v = viewmodel.limits_view([snap(), snap("codex", State.NOT_INSTALLED, State.NOT_INSTALLED),
+                               snap("antigravity", quota=State.NOT_AUTHENTICATED)], NOW)
+    assert [p["id"] for p in v] == ["claude", "antigravity"]  # not installed: hidden
+    assert v[0]["name"] == "Claude" and v[0]["windows"][0]["label"] == "5 hours"
+    assert v[0]["windows"][0]["remaining"] == 59
+    assert v[1]["message"] == "Not signed in · run antigravity login" and v[1]["level"] == "bad"
+
+
+def test_tokens_view_groups_and_periods():
+    i18n.set_language("en")
+    t = viewmodel.tokens_view([snap(), snap("codex")], NOW)
+    assert [g["key"] for g in t["groups"]] == ["all", "claude", "codex"]
+    all7 = t["data"]["all"]["periods"]["7d"]
+    assert all7["total"] == 2 * (1520 + 10)
+    assert [m["name"] for m in all7["models"]] == ["model-a", "model-b"]
+    assert len(t["data"]["claude"]["daily"]) == 7
+    assert json.loads(json.dumps(viewmodel.widget_view([snap()], NOW)))["ring"]["available"]

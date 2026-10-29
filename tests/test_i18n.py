@@ -95,5 +95,5 @@ def test_ui_renders_in_turkish(turkish):
     assert card.pill.text() == "Yalnızca yerel"
     assert card.quota_msg.text().startswith("Kullanılamıyor — ")
     card.update_snapshot(snap(State.OK, State.OK))
-    assert "Haftalık pay" in card.breakdown.text()
-    assert card.quota_title.text() == "HESAP KOTASI"
+    assert "Haftalık pay" in card.quota_title.toolTip()
+    assert card.quota_title.text() == "Limitler"
