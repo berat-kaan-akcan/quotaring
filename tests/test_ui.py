@@ -106,7 +106,7 @@ def test_prefs_round_trip(app, settings):
     backend.setPref("showRemaining", False)
     backend.setPref("window", {"x": 1})  # unknown keys are ignored
     assert settings.show_remaining is False
-    assert backend.prefs == {"showRemaining": False, "pinned": {}}
+    assert backend.prefs == {"showRemaining": False, "pinned": {}, "order": []}
     assert len(saved) == 1
 
 
@@ -265,4 +265,70 @@ def test_settings_apply_without_save(app, settings, qml_errors):
     popup.content().setProperty("page", "limits")  # leaving applies a typed value still waiting for a pause
     settle(app)
     assert saved[-1]["claude_command"] == "/opt/claude"
+    assert qml_errors == []
+
+
+def test_card_order_is_saved_and_cleaned(app, settings, tmp_path):
+    import json
+    from quotaring import settings as settings_mod
+    backend, _popup = popup_for(settings)
+    saved = []
+    backend.prefsSaved.connect(lambda: saved.append(1))
+    backend.setCardOrder(["antigravity", "claude", "bard", "claude"])
+    assert settings.card_order == ["antigravity", "claude"] and backend.prefs["order"] == ["antigravity", "claude"]
+    assert saved == [1]
+    p = tmp_path / "s.json"
+    p.write_text(json.dumps({"card_order": "codex"}))
+    assert settings_mod.load(p).card_order == []
+
+
+def test_cards_reorder_by_press_hold_and_drag(app, settings, qml_errors):
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+    backend, popup = popup_for(settings)
+    popup.show()
+    snaps = []
+    for pid, name in (("claude", "Claude Code"), ("codex", "Codex"), ("antigravity", "Antigravity")):
+        s = snap(State.OK, State.OK)
+        snaps.append(ProviderSnapshot(pid, name, s.local, s.quota))
+    backend.set_view(viewmodel.widget_view(snaps, NOW))
+    settle(app)
+
+    def walk(item):
+        yield item
+        for c in item.childItems():
+            yield from walk(c)
+
+    def cards():  # slot -> card
+        return {c.property("slot"): c for c in walk(popup.window.contentItem()) if c.objectName() == "providerCard"}
+
+    def at(item, fx, fy):
+        p = item.mapToScene(item.boundingRect().topLeft())
+        return QPoint(int(p.x() + item.width() * fx), int(p.y() + item.height() * fy))
+
+    def wait(ms):
+        end = time.time() + ms / 1000
+        while time.time() < end:
+            app.processEvents()
+            time.sleep(0.01)
+
+    first, third = cards()[0], cards()[2]
+    w = popup.window
+    # A plain click does not move anything.
+    QTest.mouseClick(w, Qt.LeftButton, Qt.NoModifier, at(first, 0.03, 0.02))
+    wait(50)
+    assert settings.card_order == []
+    # Press and hold on the first card, drag it onto the third, let go.
+    QTest.mousePress(w, Qt.LeftButton, Qt.NoModifier, at(first, 0.03, 0.02))
+    wait(700)
+    assert first.property("dragging") is True
+    target = at(third, 0.5, 0.5)
+    for i in range(1, 6):
+        QTest.mouseMove(w, target * i / 5 + at(first, 0.03, 0.02) * (5 - i) / 5)
+        wait(20)
+    QTest.mouseRelease(w, Qt.LeftButton, Qt.NoModifier, target)
+    wait(50)
+    assert first.property("dragging") is False
+    assert settings.card_order == ["codex", "antigravity", "claude"]
+    assert {s: c.property("slot") for s, c in cards().items()} == {0: 0, 1: 1, 2: 2}
     assert qml_errors == []

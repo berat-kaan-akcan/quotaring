@@ -96,6 +96,7 @@ weekly one, in the provider's colour; the middle shows the tightest limit. Each 
 limit and when it resets. Hover a row to light it on the ring; click it to keep it there.
 Antigravity lists its models one by one — Opus, Sonnet and GPT-OSS share one pool there, so their
 numbers match — and the selected model's 5-hour and weekly limits take the two rings.
+Press and hold a card, then drag it, to put the cards in the order you like; the order is saved.
 
 **Tokens page.** Click the token strip at the bottom of the Limits page. Pick a period and a
 provider; you get the total, what it would cost at API prices, the input / output / cache split,

@@ -18,6 +18,19 @@ Item {
     // Token strip: all providers together, or one picked from the chips above it.
     property string tokGroup: "all"
     property string tokPeriod: "7d"  // the Tokens page's period
+    // Provider cards in the user's order (saved), then any not placed yet; `dragOrder` while a
+    // card is being dragged, so the others make room as it moves.
+    property var dragOrder: null
+    readonly property var cardOrder: {
+        const ids = v ? v.limits.map(l => l.id) : [];
+        const saved = (backend.prefs.order || []).filter(id => ids.indexOf(id) >= 0);
+        return dragOrder || saved.concat(ids.filter(id => saved.indexOf(id) < 0));
+    }
+    function moveCard(id, to) {
+        const o = cardOrder.filter(x => x !== id);
+        o.splice(to, 0, id);
+        dragOrder = o;
+    }
     readonly property var tok: v ? (v.tokens.data[tokGroup] || v.tokens.data["all"]) : null
     readonly property var tokNow: tok ? tok.periods[tokPeriod] : null
     readonly property color tokColor: {
@@ -131,6 +144,7 @@ Item {
                     }
 
                     GridLayout {
+                        id: grid
                         visible: popup.page === "limits"
                         Layout.fillWidth: true
                         columns: 2
@@ -303,13 +317,69 @@ Item {
         }
         function sweep() { ring.sweep(); }
 
+        // Press and hold, then drag, to move the card; the order is saved on release.
+        readonly property int slot: Math.max(0, popup.cardOrder.indexOf(modelData.id))
+        property bool dragging: false
+        property point grab  // where the card was taken, inside it
+        property point ptr   // the pointer, in the grid
+        function drop() {
+            if (!dragging) return;
+            dragging = false;
+            backend.setCardOrder(popup.dragOrder);
+            popup.dragOrder = null;
+        }
+
+        Layout.row: Math.floor(slot / 2)
+        Layout.column: slot % 2
         Layout.fillWidth: true
         Layout.preferredWidth: 1  // equal columns
         Layout.alignment: Qt.AlignTop
         implicitHeight: col.implicitHeight + 24
         radius: 14
         color: popup.c.card
-        border.color: popup.c.border
+        border.color: dragging ? Qt.alpha(modelData.color, 0.7) : popup.c.border
+        z: dragging ? 10 : 0
+        scale: dragging ? 1.03 : 1
+        Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+        // The others glide to their new place; the dragged one follows the pointer.
+        Behavior on x { enabled: popup.dragOrder !== null && !card.dragging; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+        Behavior on y { enabled: popup.dragOrder !== null && !card.dragging; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+        transform: Translate {
+            x: card.dragging ? card.ptr.x - card.grab.x - card.x : 0
+            y: card.dragging ? card.ptr.y - card.grab.y - card.y : 0
+            Behavior on x { enabled: !card.dragging; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+            Behavior on y { enabled: !card.dragging; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            z: -1  // under the rows: their hover and clicks keep working
+            pressAndHoldInterval: 450
+            preventStealing: card.dragging  // the list must not scroll away under the drag
+            cursorShape: card.dragging ? Qt.ClosedHandCursor : Qt.ArrowCursor
+            onPressAndHold: mouse => {
+                card.grab = Qt.point(mouse.x, mouse.y);
+                card.ptr = mapToItem(grid, mouse.x, mouse.y);
+                popup.dragOrder = popup.cardOrder.slice();
+                card.dragging = true;
+            }
+            onPositionChanged: mouse => {
+                if (!card.dragging) return;
+                card.ptr = mapToItem(grid, mouse.x, mouse.y);
+                // The card whose place is under the pointer (by layout, not by where the dragged
+                // card is drawn: it is always under the pointer itself).
+                for (const other of grid.children) {
+                    if (other === card || other.objectName !== "providerCard") continue;
+                    if (card.ptr.x >= other.x && card.ptr.x < other.x + other.width
+                            && card.ptr.y >= other.y && card.ptr.y < other.y + other.height) {
+                        popup.moveCard(card.modelData.id, other.slot);
+                        break;
+                    }
+                }
+            }
+            onReleased: card.drop()
+            onCanceled: card.drop()
+        }
 
         ColumnLayout {
             id: col

@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Added
+- Provider cards can be rearranged: press and hold a card, drag it where you want it; the
+  order is saved.
 - Tokens page (click the token strip): period and provider chips, total with what it would cost
   at API list prices (cache included), input / output / cache split, daily columns labelled with
   their values, and every model with its provider, cost and token split.

@@ -145,7 +145,16 @@ class Backend(QObject):
     def prefs(self):
         prefs = {key: getattr(self.settings, attr) for key, (attr, _t) in self.PREFS.items()}
         prefs["pinned"] = dict(self.settings.pinned)
+        prefs["order"] = list(self.settings.card_order)
         return prefs
+
+    @Slot("QVariant")
+    def setCardOrder(self, order):
+        """The provider cards as the user arranged them (by dragging)."""
+        self.settings.card_order = list(order or [])
+        self.settings.clamp()
+        self.prefsChanged.emit()
+        self.prefsSaved.emit()
 
     @Slot(str, str)
     def pin(self, provider, label):

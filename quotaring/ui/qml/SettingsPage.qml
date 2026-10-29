@@ -151,14 +151,6 @@ ColumnLayout {
         }
     }
 
-    Text {
-        Layout.fillWidth: true
-        horizontalAlignment: Text.AlignHCenter
-        text: win.t.instant || ""
-        color: win.c.muted
-        font.pointSize: 8
-    }
-
     // -- building blocks ------------------------------------------------------
 
     // A card with an upper-case title; a collapsible one opens and closes from its title.

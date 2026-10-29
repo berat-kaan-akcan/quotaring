@@ -26,7 +26,7 @@ def form(s: Settings, autostart_supported: bool) -> dict:
         "remaining": "Show limits as the percent left (off: used)", "autostart": "Start at login",
         "prices": "Update API prices", "pricesHint": "Weekly, for the cost estimate on the Tokens page",
         "notify": "Notify at quota", "off": "Off", "claudeCommand": "claude command",
-        "codexCommand": "codex command", "instant": "Changes apply right away",
+        "codexCommand": "codex command",
         "privacy": "Quota checks start the provider's own CLI (no model request). "
                    "The widget never reads or stores credentials.",
     }.items()}

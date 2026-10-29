@@ -22,6 +22,7 @@ class Settings:
     start_at_login: bool = False
     show_remaining: bool = True  # limits as what is left (else as what is used)
     pinned: dict = field(default_factory=dict)  # provider id -> limit label shown on its ring
+    card_order: list = field(default_factory=list)  # provider ids as arranged in the popup
     notify_threshold: int = 90  # percent; 0 disables quota notifications
     update_prices: bool = True  # download the API price list weekly (Tokens page estimate)
     providers_enabled: dict = field(default_factory=lambda: {p: True for p in PROVIDER_IDS})
@@ -41,6 +42,8 @@ class Settings:
         if self.accent not in ("slate", "ink", "amber"):
             self.accent = "slate"
         self.pinned = {k: v for k, v in self.pinned.items() if k in PROVIDER_IDS and isinstance(v, str)}
+        order = self.card_order if isinstance(self.card_order, list) else []
+        self.card_order = [p for i, p in enumerate(order) if p in PROVIDER_IDS and p not in order[:i]]
         for d in (self.providers_enabled, self.quota_enabled):
             for p in PROVIDER_IDS:
                 d[p] = bool(d.get(p, True))
