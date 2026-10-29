@@ -8,7 +8,7 @@ import os
 import sys
 import time
 
-from PySide6.QtCore import QLockFile, QObject, QRectF, QRunnable, Qt, QThreadPool, QTimer, Signal
+from PySide6.QtCore import QLockFile, QObject, QPointF, QRectF, QRunnable, Qt, QThreadPool, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
@@ -24,21 +24,29 @@ log = logging.getLogger("quotaring")
 
 
 def make_icon() -> QIcon:
+    """App icon: the QuotaRing mark (a Q drawn as a gauge) on a dark tile; see docs/brand/build_logo.py."""
     icon = QIcon()
     for size in (16, 22, 24, 32, 48, 64, 128, 256):
         pm = QPixmap(size, size)
         pm.fill(QColor(0, 0, 0, 0))
         p = QPainter(pm)
         p.setRenderHint(QPainter.Antialiasing)
-        p.setPen(QColor(0, 0, 0, 0))
-        p.setBrush(QColor("#25272c"))
-        p.drawRoundedRect(0, 0, size, size, size * 0.22, size * 0.22)
-        w = size / 7
-        for i, (h, c) in enumerate(((0.45, "#d97757"), (0.7, "#10a37f"), (0.55, "#4285f4"))):
-            x = w * (1 + 2 * i)
-            hh = (size - 2 * w) * h
-            p.setBrush(QColor(c))
-            p.drawRoundedRect(x, size - w - hh, w, hh, w * 0.4, w * 0.4)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor("#18191c"))
+        p.drawRoundedRect(QRectF(0, 0, size, size), size * 56 / 256, size * 56 / 256)
+        # Mark geometry on a 256 canvas: centre, ring radius, stroke, tail end, scale on the tile.
+        # Small sizes use the heavier cut so the ring stays open and the tail visible.
+        c, r, w, tail, scale = (124, 74, 50, 106, 0.8) if size <= 32 else (125, 80, 36, 116, 0.74)
+        k = size / 256
+
+        def at(v):  # canvas coordinate -> pixel, as translate(124) scale(s) translate(-128) in the SVG
+            return (124 + scale * (v - 128)) * k
+        rr, ww = r * scale * k, w * scale * k
+        p.setPen(QPen(QColor("#7aa2f7"), ww, Qt.SolidLine, Qt.RoundCap))
+        p.setBrush(Qt.NoBrush)
+        p.drawArc(QRectF(at(c) - rr, at(c) - rr, 2 * rr, 2 * rr), 90 * 16, -270 * 16)
+        d = 0.70710678
+        p.drawLine(QPointF(at(c + r * d), at(c + r * d)), QPointF(at(c + tail * d), at(c + tail * d)))
         p.end()
         icon.addPixmap(pm)
     return icon

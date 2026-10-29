@@ -1,8 +1,11 @@
 <div align="center">
 
-<img src="packaging/icons/quotaring-128.png" width="96" alt="QuotaRing icon">
-
-# QuotaRing
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/quotaring-horizontal-dark.svg">
+    <img src="docs/brand/quotaring-horizontal.svg" width="340" alt="QuotaRing">
+  </picture>
+</h1>
 
 **Claude Code, Codex and Antigravity usage limits as a ring in your tray.**
 
