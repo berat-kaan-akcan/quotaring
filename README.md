@@ -30,7 +30,7 @@
 
 - 🟢 **One glance:** the tray icon is a ring around the tightest limit left, turning amber and red as it runs out.
 - 🧭 **All three tools in one popup:** 5-hour and weekly windows per provider, with reset times.
-- 📊 **Local token history:** today, 7 days and a 7-day bar chart from the tools' own logs.
+- 📊 **Local token history:** today, 7 days and a 7-day bar chart from the tools' own logs, for all tools together or one at a time.
 - 🔒 **No credentials touched:** limits come from each provider's own CLI or local cache; files are opened read-only.
 - 🔔 **Notifications** when a limit crosses your threshold (default 90 %).
 - 🖥️ **Linux and Windows:** GNOME and KDE, X11 and Wayland (layer-shell popup on Plasma); English and Turkish UI.
@@ -124,6 +124,8 @@ This runs the tests, builds `dist\quotaring\quotaring.exe`, a zip, and — if
   weekly one, in the provider's colour; the middle shows the tightest limit — with reset times
   below, and a strip of locally recorded tokens (today, 7 days, last 7 days as bars).
   Each ring is tagged where it starts (5h / W); hover a ring or a row to light that limit.
+- The token strip shows all providers together; click **Claude**, **Codex** or **Antigravity**
+  above it to see one provider's tokens, with the bars in its colour.
 - Keys in the popup: F5 / Ctrl+R refresh · Ctrl+, settings · Esc close · Ctrl+Q quit.
 - The tray tooltip summarizes each provider (quota only when the provider reported it).
 - Only one instance runs per user; a second launch exits (`--allow-multiple` overrides).

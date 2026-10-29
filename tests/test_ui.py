@@ -76,6 +76,22 @@ def test_all_states_render(app, settings, qml_errors, remaining, palette):
     assert qml_errors == []
 
 
+def test_token_strip_per_provider(app, settings, qml_errors):
+    from PySide6.QtCore import QObject
+    codex = snap(State.OK, State.OK)
+    codex.provider_id, codex.name = "codex", "Codex"
+    view = viewmodel.widget_view([snap(State.OK, State.OK), codex], NOW)
+    assert [g["key"] for g in view["tokens"]["groups"]] == ["all", "claude", "codex"]
+    backend, popup = popup_for(settings)
+    popup.show()
+    backend.set_view(view)
+    content = popup.window.findChild(QObject, "popupContent")
+    for group in ("codex", "gone", "all"):  # an unknown group falls back to all providers
+        content.setProperty("tokGroup", group)
+        settle(app, 2)
+    assert qml_errors == []
+
+
 def test_no_data_yet_renders(app, settings, qml_errors):
     _backend, popup = popup_for(settings)
     popup.show()

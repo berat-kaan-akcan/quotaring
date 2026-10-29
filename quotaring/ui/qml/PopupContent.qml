@@ -7,10 +7,17 @@ import "Theme.js" as T
 // colour) and a strip of locally recorded tokens. Data: viewmodel.widget_view() as `backend.view`.
 Item {
     id: popup
+    objectName: "popupContent"
     readonly property var v: backend.view
     readonly property var c: backend.palette
     readonly property bool remaining: backend.prefs.showRemaining
-    readonly property var tok: v ? v.tokens.data["all"] : null
+    // Token strip: all providers together, or one picked from the chips above it.
+    property string tokGroup: "all"
+    readonly property var tok: v ? (v.tokens.data[tokGroup] || v.tokens.data["all"]) : null
+    readonly property color tokColor: {
+        for (const g of (v ? v.tokens.groups : [])) if (g.key === tokGroup && g.color) return g.color;
+        return c.accent;
+    }
     implicitHeight: body.implicitHeight + 28
 
     // Slide up, fade in and sweep the rings each time the window is shown.
@@ -97,14 +104,55 @@ Item {
             Rectangle {
                 visible: !!popup.tok
                 Layout.fillWidth: true
-                implicitHeight: strip.implicitHeight + 20
+                implicitHeight: stripBox.implicitHeight + 20
                 radius: 12
                 color: popup.c.card
                 border.color: popup.c.border
+                ColumnLayout {
+                id: stripBox
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 8
+                // All / per-provider chips; hidden while only one provider has local data.
+                Row {
+                    visible: chips.count > 2
+                    spacing: 4
+                    Repeater {
+                        id: chips
+                        model: popup.v ? popup.v.tokens.groups : []
+                        delegate: Rectangle {
+                            id: chip
+                            required property var modelData
+                            readonly property bool active: (popup.v.tokens.data[popup.tokGroup] ? popup.tokGroup : "all") === modelData.key
+                            width: chipRow.implicitWidth + 14
+                            height: chipRow.implicitHeight + 6
+                            radius: height / 2
+                            color: active ? popup.c.track : (chipHover.hovered ? Qt.alpha(popup.c.track, 0.5) : "transparent")
+                            Row {
+                                id: chipRow
+                                anchors.centerIn: parent
+                                spacing: 5
+                                Rectangle {
+                                    visible: !!chip.modelData.color
+                                    width: 7; height: 7; radius: 3.5
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    color: chip.modelData.color || "transparent"
+                                }
+                                Text {
+                                    text: chip.modelData.label
+                                    color: chip.active ? popup.c.text : popup.c.muted
+                                    font.pointSize: 8.5
+                                    font.weight: chip.active ? Font.DemiBold : Font.Normal
+                                }
+                            }
+                            HoverHandler { id: chipHover; cursorShape: Qt.PointingHandCursor }
+                            TapHandler { onTapped: popup.tokGroup = chip.modelData.key }
+                        }
+                    }
+                }
                 RowLayout {
                     id: strip
-                    anchors.fill: parent
-                    anchors.margins: 10
+                    Layout.fillWidth: true
                     spacing: 14
                     Repeater {
                         model: ["today", "7d"]
@@ -142,7 +190,7 @@ Item {
                                     width: parent.width
                                     radius: 2
                                     height: Math.max(2, parent.height * day.modelData.ratio)
-                                    color: day.modelData.value > 0 ? (hover.containsMouse ? popup.c.text : popup.c.accent) : popup.c.track
+                                    color: day.modelData.value > 0 ? (hover.containsMouse ? popup.c.text : popup.tokColor) : popup.c.track
                                     Behavior on height { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
                                 }
                                 MouseArea { id: hover; anchors.fill: parent; hoverEnabled: true }
@@ -151,6 +199,7 @@ Item {
                             }
                         }
                     }
+                }
                 }
                 HoverHandler { id: stripHover }
                 ToolTip.visible: stripHover.hovered && !!popup.v

@@ -24,7 +24,7 @@ os.environ["LANG"] = os.environ["LC_ALL"] = "C.UTF-8"  # English UI
 for var in ("XDG_CONFIG_HOME", "XDG_CACHE_HOME", "APPDATA", "LOCALAPPDATA"):
     os.environ[var] = _tmp
 
-from PySide6.QtCore import QRectF, Qt  # noqa: E402
+from PySide6.QtCore import QObject, QRectF, Qt  # noqa: E402
 from PySide6.QtGui import QColor, QFont, QImage, QPainter  # noqa: E402
 from PySide6.QtQuick import QQuickWindow  # noqa: E402,F401  (rootObjects() then yields QQuickWindow)
 from PySide6.QtWidgets import QApplication  # noqa: E402
@@ -80,12 +80,13 @@ def settle(app, n=40):
         time.sleep(0.01)
 
 
-def popup_shot(app, palette: theme.Palette, name: str) -> Popup:
+def popup_shot(app, palette: theme.Palette, name: str, tokens: str = "all") -> Popup:
     settings = Settings()
     backend = Backend(settings, palette)
     popup = Popup(backend, docked=False)
     popup.show()
     backend.set_view(viewmodel.widget_view(demo(), NOW))
+    popup.window.findChild(QObject, "popupContent").setProperty("tokGroup", tokens)
     settle(app)
     popup.window.grabWindow().save(str(OUT / name))
     return popup, backend, settings
@@ -117,7 +118,7 @@ def main():
     app = QApplication(sys.argv)
     font = QFont(app.font())
     app.setFont(font)
-    keep = [popup_shot(app, theme.DARK, "popup-dark.png"), popup_shot(app, theme.LIGHT, "popup-light.png")]
+    keep = [popup_shot(app, theme.DARK, "popup-dark.png"), popup_shot(app, theme.LIGHT, "popup-light.png", tokens="claude")]
     popup, backend, settings = keep[0]
     backend.set_settings_form(settings_form.form(settings, True))
     popup.open_settings()

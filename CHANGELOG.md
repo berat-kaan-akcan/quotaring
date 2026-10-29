@@ -17,7 +17,8 @@ First public release.
 - OpenAI Codex: ChatGPT-plan limits via `codex app-server`; local token counts from rollout logs.
 - Google Antigravity: per-model limits from the IDE's local account-status cache; local token
   counts from its conversation databases (read-only).
-- Token strip: today, 7 days and a 7-day bar chart from local history.
+- Token strip: today, 7 days and a 7-day bar chart from local history, for all providers or
+  one picked from the chips above it.
 - Settings: theme, language (English / Turkish, follows the system by default), percent left or
   used, refresh intervals, start at login, quota notifications, per-provider toggles, CLI paths.
 - KDE Plasma Wayland: popup as a layer-shell surface anchored by the panel; XWayland fallback
