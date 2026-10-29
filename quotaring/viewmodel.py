@@ -9,9 +9,9 @@ from __future__ import annotations
 import re
 from datetime import date, datetime
 
-from . import __version__
+from . import __version__, pricing
 from .i18n import language, tr, tr_label
-from .model import ProviderSnapshot, State
+from .model import ProviderSnapshot, State, Tokens
 from .ui import format as fmt
 
 COLORS = {"claude": "#d97757", "codex": "#10a37f", "antigravity": "#4285f4"}
@@ -23,11 +23,19 @@ MONTHS_EN = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct
 CHART_DAYS = 7
 
 
+GEMINI_WORDS = {"flash", "pro", "argon", "lite", "ultra", "nano"}
+
+
 def model_name(model: str) -> str:
-    """'claude-opus-5-5' -> 'Opus 5.5'; other ids unchanged."""
+    """'claude-opus-5-5' -> 'Opus 5.5', 'gemini-3.8-flash-n' -> 'Gemini 3.8 Flash'; others unchanged."""
+    if model.startswith("gemini-"):
+        # Antigravity tags variants ("-n", "-trial", "-default"); they are one model to the user.
+        keep = [p for p in model[7:].split("-") if re.fullmatch(r"\d+(\.\d+)*", p) or p in GEMINI_WORDS]
+        return " ".join(["Gemini"] + [p.capitalize() for p in keep])
     if not model.startswith("claude-"):
         return model
-    parts = [p for p in model[7:].split("-") if not re.fullmatch(r"\d{8}", p)]
+    parts = [p for p in model[7:].split("-")
+             if not re.fullmatch(r"\d{8}", p) and p not in ("low", "medium", "high", "xhigh", "max")]
     words = [p.capitalize() for p in parts if not p.isdigit()]
     nums = [p for p in parts if p.isdigit()]
     return " ".join(words + ([".".join(nums)] if nums else [])) or model
@@ -148,8 +156,23 @@ def _day_label(day: str) -> str:
     return f"{d.day} {MONTHS_TR[d.month - 1]}" if language() == "tr" else f"{MONTHS_EN[d.month - 1]} {d.day}"
 
 
+def _usd(v: float | None) -> str:
+    if v is None:
+        return "—"
+    return f"${v:,.0f}" if v >= 100 else f"${v:,.2f}" if v >= 0.01 or v == 0 else "<$0.01"
+
+
+def _parts(t: Tokens) -> dict:
+    return {"input": fmt.tokens(t.input), "output": fmt.tokens(t.output),
+            "cacheRead": fmt.tokens(t.cache_read), "cacheWrite": fmt.tokens(t.cache_write)}
+
+
 def tokens_view(snaps, now: float) -> dict:
-    """Local token totals per provider and for all of them, per period, plus a 7-day chart."""
+    """Local token totals per provider and for all of them, per period, plus a 7-day chart.
+
+    Each model and total also carries its input / output / cache split and what it would cost
+    at API list prices (models without a known price add nothing and are flagged).
+    """
     usable = [s for s in snaps if s.local.state in (State.OK, State.STALE) and s.local.periods]
     groups = [("all", tr("All"), "", usable)] + [
         (s.provider_id, s.name.replace(" Code", ""), COLORS.get(s.provider_id, "#888888"), [s]) for s in usable]
@@ -157,21 +180,34 @@ def tokens_view(snaps, now: float) -> dict:
     for key, _label, _color, members in groups:
         periods = {}
         for pkey, _plabel in SHORT_PERIODS:
-            total, models = 0, {}
+            total, models, providers, unpriced = Tokens(), {}, [], False
             for s in members:
                 per = s.local.period(pkey)
                 if not per:
                     continue
-                total += per.total.total
+                total.add(per.total)
+                spent, pname = 0.0, s.name.replace(" Code", "")
                 for m, t in per.by_model.items():
-                    name = model_name(m)
-                    prev = models.get(name, (0, s.provider_id))
-                    models[name] = (prev[0] + t.total, s.provider_id)
-            rows = sorted(models.items(), key=lambda kv: kv[1][0], reverse=True)
-            top = rows[0][1][0] if rows else 0
-            periods[pkey] = {"total": total, "totalText": fmt.tokens(total), "models": [
-                {"name": n, "text": fmt.tokens(v), "ratio": v / top if top else 0,
-                 "color": COLORS.get(pid, "#888888")} for n, (v, pid) in rows if v > 0]}
+                    usd = pricing.cost(m, t)
+                    unpriced |= usd is None and t.total > 0
+                    spent += usd or 0.0
+                    row = models.setdefault((model_name(m), s.provider_id, pname), [Tokens(), 0.0, True])
+                    row[0].add(t)
+                    row[1] += usd or 0.0
+                    row[2] &= usd is not None
+                providers.append({"name": pname, "color": COLORS.get(s.provider_id, "#888888"),
+                                  "text": fmt.tokens(per.total.total), "cost": _usd(spent)})
+            rows = sorted(models.items(), key=lambda kv: kv[1][0].total, reverse=True)
+            top = rows[0][1][0].total if rows else 0
+            cost = sum(r[1] for _k, r in rows)
+            periods[pkey] = {
+                "total": total.total, "totalText": fmt.tokens(total.total), "parts": _parts(total),
+                "cost": cost, "costText": _usd(cost), "unpriced": unpriced, "providers": providers,
+                "models": [{"name": n, "provider": pname, "text": fmt.tokens(t.total),
+                            "ratio": t.total / top if top else 0,
+                            "cost": _usd(usd if priced else None), "parts": _parts(t),
+                            "color": COLORS.get(pid, "#888888")}
+                           for (n, pid, pname), (t, usd, priced) in rows if t.total > 0]}
         days: dict[str, int] = {}
         for s in members:
             for d, v in (s.local.daily or [])[-CHART_DAYS:]:
@@ -179,7 +215,7 @@ def tokens_view(snaps, now: float) -> dict:
         peak = max(days.values(), default=0)
         data[key] = {"periods": periods, "daily": [
             {"label": _day_label(d), "value": v, "text": fmt.tokens(v), "ratio": v / peak if peak else 0}
-            for d, v in sorted(days.items())], "peakText": fmt.tokens(peak)}
+            for d, v in sorted(days.items())], "peakText": fmt.tokens(peak), "halfText": fmt.tokens(peak / 2)}
     return {"groups": [{"key": k, "label": label, "color": c} for k, label, c, _m in groups],
             "periods": [{"key": k, "label": tr(label)} for k, label in SHORT_PERIODS], "data": data}
 
@@ -195,7 +231,14 @@ def widget_view(snapshots, now: float) -> dict:
                      time=datetime.fromtimestamp(now).strftime("%H:%M")),
                  "localOnly": tr("From local Claude Code, Codex and Antigravity logs; not account quota."),
                  "total": tr("Total tokens · {period}"), "daily": tr("Daily"), "byModel": tr("By model"),
-                 "noData": tr("No usage recorded in this period"), "noLimits": tr("No limit data yet")},
+                 "noData": tr("No usage recorded in this period"), "noLimits": tr("No limit data yet"),
+                 "tokenUsage": tr("Token usage"), "back": tr("Back"), "details": tr("Details"),
+                 "apiCost": tr("≈ {cost} at API prices, cache included"),
+                 "unpriced": tr("Models without a known price are not counted."),
+                 "priceNote": tr("API list prices ({date}); subscriptions are not billed per token.").format(
+                     date=pricing.AS_OF),
+                 "input": tr("Input"), "output": tr("Output"), "cacheRead": tr("Cache read"),
+                 "cacheWrite": tr("Cache write")},
         "version": __version__,
         "language": language(),
         "generatedAt": datetime.fromtimestamp(now).isoformat(timespec="seconds"),

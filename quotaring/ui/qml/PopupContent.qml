@@ -3,17 +3,22 @@ import QtQuick.Controls.Basic  // own look on every OS; native styles ignore cus
 import QtQuick.Layouts
 import "Theme.js" as T
 
-// One screen: a ring card per provider (outer ring 5 hours, inner ring weekly, in the provider's
-// colour) and a strip of locally recorded tokens. Data: viewmodel.widget_view() as `backend.view`.
+// Two pages. Limits: a ring card per provider (outer ring 5 hours, inner ring weekly, in the
+// provider's colour) and a strip of locally recorded tokens; clicking the strip opens Tokens:
+// totals by period, API-price estimate, daily columns and a per-model breakdown.
+// Data: viewmodel.widget_view() as `backend.view`.
 Item {
     id: popup
     objectName: "popupContent"
     readonly property var v: backend.view
     readonly property var c: backend.palette
     readonly property bool remaining: backend.prefs.showRemaining
+    property string page: "limits"  // "limits" | "tokens"
     // Token strip: all providers together, or one picked from the chips above it.
     property string tokGroup: "all"
+    property string tokPeriod: "7d"  // the Tokens page's period
     readonly property var tok: v ? (v.tokens.data[tokGroup] || v.tokens.data["all"]) : null
+    readonly property var tokNow: tok ? tok.periods[tokPeriod] : null
     readonly property color tokColor: {
         for (const g of (v ? v.tokens.groups : [])) if (g.key === tokGroup && g.color) return g.color;
         return c.accent;
@@ -22,6 +27,7 @@ Item {
 
     // Slide up, fade in and sweep the rings each time the window is shown.
     function animateIn() {
+        page = "limits";
         intro.restart();
         for (let i = 0; i < cards.count; i++)
             cards.itemAt(i).sweep();
@@ -55,9 +61,17 @@ Item {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 2
+                IconButton {
+                    visible: popup.page === "tokens"
+                    Layout.leftMargin: -6
+                    c: popup.c
+                    kind: "back"
+                    tip: popup.v ? popup.v.text.back : "Back"
+                    onClicked: popup.page = "limits"
+                }
                 Text {
                     Layout.fillWidth: true
-                    text: popup.v ? popup.v.labels.title : "QuotaRing"
+                    text: !popup.v ? "QuotaRing" : popup.page === "tokens" ? popup.v.text.tokenUsage : popup.v.labels.title
                     color: popup.c.text
                     font.pointSize: 12
                     font.weight: Font.DemiBold
@@ -79,7 +93,7 @@ Item {
             }
 
             Text {
-                visible: !popup.v || popup.v.limits.length === 0
+                visible: popup.page === "limits" && (!popup.v || popup.v.limits.length === 0)
                 Layout.fillWidth: true
                 Layout.topMargin: 20
                 Layout.bottomMargin: 20
@@ -89,6 +103,7 @@ Item {
             }
 
             GridLayout {
+                visible: popup.page === "limits"
                 Layout.fillWidth: true
                 columns: 2
                 columnSpacing: 10
@@ -101,53 +116,29 @@ Item {
             }
 
             // Locally recorded tokens: today and 7 days, with the last 7 days as bars.
+            // Clicking it opens the Tokens page.
             Rectangle {
-                visible: !!popup.tok
+                visible: popup.page === "limits" && !!popup.tok
                 Layout.fillWidth: true
                 implicitHeight: stripBox.implicitHeight + 20
                 radius: 12
-                color: popup.c.card
+                color: stripHover.hovered ? Qt.tint(popup.c.card, Qt.alpha(popup.c.track, 0.5)) : popup.c.card
                 border.color: popup.c.border
+                TapHandler { onTapped: popup.page = "tokens" }
                 ColumnLayout {
                 id: stripBox
                 anchors.fill: parent
                 anchors.margins: 10
                 spacing: 8
-                // All / per-provider chips; hidden while only one provider has local data.
-                Row {
-                    visible: chips.count > 2
-                    spacing: 4
-                    Repeater {
-                        id: chips
-                        model: popup.v ? popup.v.tokens.groups : []
-                        delegate: Rectangle {
-                            id: chip
-                            required property var modelData
-                            readonly property bool active: (popup.v.tokens.data[popup.tokGroup] ? popup.tokGroup : "all") === modelData.key
-                            width: chipRow.implicitWidth + 14
-                            height: chipRow.implicitHeight + 6
-                            radius: height / 2
-                            color: active ? popup.c.track : (chipHover.hovered ? Qt.alpha(popup.c.track, 0.5) : "transparent")
-                            Row {
-                                id: chipRow
-                                anchors.centerIn: parent
-                                spacing: 5
-                                Rectangle {
-                                    visible: !!chip.modelData.color
-                                    width: 7; height: 7; radius: 3.5
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    color: chip.modelData.color || "transparent"
-                                }
-                                Text {
-                                    text: chip.modelData.label
-                                    color: chip.active ? popup.c.text : popup.c.muted
-                                    font.pointSize: 8.5
-                                    font.weight: chip.active ? Font.DemiBold : Font.Normal
-                                }
-                            }
-                            HoverHandler { id: chipHover; cursorShape: Qt.PointingHandCursor }
-                            TapHandler { onTapped: popup.tokGroup = chip.modelData.key }
-                        }
+                RowLayout {
+                    Layout.fillWidth: true
+                    // All / per-provider chips; hidden while only one provider has local data.
+                    GroupChips { visible: count > 2 }
+                    Item { Layout.fillWidth: true; implicitHeight: 1 }
+                    Text {
+                        text: (popup.v ? popup.v.text.details : "") + " ›"
+                        color: stripHover.hovered ? popup.c.text : popup.c.muted
+                        font.pointSize: 8.5
                     }
                 }
                 RowLayout {
@@ -201,10 +192,15 @@ Item {
                     }
                 }
                 }
-                HoverHandler { id: stripHover }
+                HoverHandler { id: stripHover; cursorShape: Qt.PointingHandCursor }
                 ToolTip.visible: stripHover.hovered && !!popup.v
                 ToolTip.delay: 800
                 ToolTip.text: popup.v ? popup.v.text.localOnly : ""
+            }
+
+            TokenDetails {
+                visible: popup.page === "tokens" && !!popup.tokNow
+                Layout.fillWidth: true
             }
 
             Text {
@@ -425,6 +421,326 @@ Item {
                 font.pointSize: 7.5
                 color: popup.c.warn
             }
+        }
+    }
+
+    // A pill that can be picked; `dot` adds a provider colour.
+    component Chip: Rectangle {
+        id: chip
+        property string label
+        property color dot: "transparent"
+        property bool active
+        signal picked()
+        implicitWidth: chipRow.implicitWidth + 14
+        implicitHeight: chipRow.implicitHeight + 6
+        radius: height / 2
+        color: active ? popup.c.track : (chipHover.hovered ? Qt.alpha(popup.c.track, 0.5) : "transparent")
+        Row {
+            id: chipRow
+            anchors.centerIn: parent
+            spacing: 5
+            Rectangle {
+                visible: chip.dot.a > 0
+                width: 7; height: 7; radius: 3.5
+                anchors.verticalCenter: parent.verticalCenter
+                color: chip.dot
+            }
+            Text {
+                text: chip.label
+                color: chip.active ? popup.c.text : popup.c.muted
+                font.pointSize: 8.5
+                font.weight: chip.active ? Font.DemiBold : Font.Normal
+            }
+        }
+        HoverHandler { id: chipHover; cursorShape: Qt.PointingHandCursor }
+        TapHandler { onTapped: chip.picked() }
+    }
+
+    // All / Claude / Codex / Antigravity.
+    component GroupChips: Row {
+        readonly property int count: rep.count
+        spacing: 4
+        Repeater {
+            id: rep
+            model: popup.v ? popup.v.tokens.groups : []
+            delegate: Chip {
+                required property var modelData
+                label: modelData.label
+                dot: modelData.color || "transparent"
+                active: (popup.v.tokens.data[popup.tokGroup] ? popup.tokGroup : "all") === modelData.key
+                onPicked: popup.tokGroup = modelData.key
+            }
+        }
+    }
+
+    component Card: Rectangle {
+        default property alias content: inner.data
+        Layout.fillWidth: true
+        implicitHeight: inner.implicitHeight + 24
+        radius: 12
+        color: popup.c.card
+        border.color: popup.c.border
+        ColumnLayout {
+            id: inner
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 8
+        }
+    }
+
+    component SectionTitle: Text {
+        color: popup.c.text
+        font.pointSize: 10
+        font.weight: Font.DemiBold
+    }
+
+    // Tokens page: period and provider chips, the total with its API-price estimate and
+    // input/output/cache split, daily columns with their values, and every model.
+    component TokenDetails: ColumnLayout {
+        id: td
+        readonly property var p: popup.tokNow
+        readonly property bool empty: !p || p.total === 0
+        spacing: 10
+
+        Flow {
+            Layout.fillWidth: true
+            spacing: 4
+            Repeater {
+                model: popup.v ? popup.v.tokens.periods : []
+                delegate: Chip {
+                    required property var modelData
+                    label: modelData.label
+                    active: popup.tokPeriod === modelData.key
+                    onPicked: popup.tokPeriod = modelData.key
+                }
+            }
+        }
+        GroupChips { visible: count > 2 }
+
+        Card {
+            Text {
+                text: td.p ? td.p.totalText : ""
+                color: popup.c.text
+                font.pointSize: 22
+                font.weight: Font.DemiBold
+                font.features: { "tnum": 1 }
+            }
+            Text {
+                Layout.topMargin: -6
+                text: popup.v ? popup.v.text.total.replace("{period}", popup.periodLabel(popup.tokPeriod)) : ""
+                color: popup.c.muted
+                font.pointSize: 8.5
+            }
+            Text {
+                visible: !td.empty
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: td.p && popup.v ? popup.v.text.apiCost.replace("{cost}", td.p.costText) : ""
+                color: popup.c.text
+                font.pointSize: 10
+            }
+            // Each provider's share while all are shown.
+            Flow {
+                visible: popup.tokGroup === "all" && !!td.p && td.p.providers.length > 1
+                Layout.fillWidth: true
+                spacing: 12
+                Repeater {
+                    model: td.p ? td.p.providers : []
+                    delegate: Row {
+                        required property var modelData
+                        spacing: 5
+                        Rectangle { width: 8; height: 8; radius: 2; color: parent.modelData.color; anchors.verticalCenter: parent.verticalCenter }
+                        Text { text: parent.modelData.name; color: popup.c.text; font.pointSize: 9 }
+                        Text { text: parent.modelData.text; color: popup.c.text; font.pointSize: 9; font.weight: Font.DemiBold; font.features: { "tnum": 1 } }
+                        Text { text: parent.modelData.cost; color: popup.c.muted; font.pointSize: 9; font.features: { "tnum": 1 } }
+                    }
+                }
+            }
+            // Where the tokens went: fresh input, output, and the cache.
+            GridLayout {
+                visible: !td.empty
+                Layout.fillWidth: true
+                Layout.topMargin: 2
+                columns: 4
+                columnSpacing: 6
+                Repeater {
+                    model: ["input", "output", "cacheRead", "cacheWrite"]
+                    delegate: Column {
+                        required property string modelData
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 1
+                        spacing: 1
+                        Text {
+                            text: td.p ? td.p.parts[parent.modelData] : ""
+                            color: popup.c.text
+                            font.pointSize: 10
+                            font.weight: Font.DemiBold
+                            font.features: { "tnum": 1 }
+                        }
+                        Text { text: popup.v ? popup.v.text[parent.modelData] : ""; color: popup.c.muted; font.pointSize: 7.5 }
+                    }
+                }
+            }
+        }
+
+        Card {
+            visible: !!popup.tok && popup.tok.daily.length > 0
+            SectionTitle { text: popup.v ? popup.v.text.daily : "" }
+            // Columns over a light grid; each column carries its value so days compare by number.
+            Item {
+                id: chart
+                Layout.fillWidth: true
+                implicitHeight: 150
+                readonly property var days: popup.tok ? popup.tok.daily : []
+                readonly property real axisW: 34
+                readonly property real topPad: 16   // room for the tallest column's label
+                readonly property real bottomPad: 18  // date labels
+                readonly property real plotH: height - topPad - bottomPad
+                Repeater {
+                    model: [1, 0.5, 0]
+                    delegate: Item {
+                        required property real modelData
+                        width: chart.width
+                        y: chart.topPad + chart.plotH * (1 - modelData)
+                        Rectangle { x: chart.axisW; width: parent.width - chart.axisW; height: 1; color: popup.c.track }
+                        Text {
+                            visible: parent.modelData > 0 && !!popup.tok && popup.tok.daily.some(d => d.value > 0)
+                            y: -height / 2
+                            width: chart.axisW - 6
+                            horizontalAlignment: Text.AlignRight
+                            text: !popup.tok ? "" : parent.modelData === 1 ? popup.tok.peakText : popup.tok.halfText
+                            color: popup.c.muted
+                            font.pointSize: 7
+                        }
+                    }
+                }
+                Row {
+                    x: chart.axisW + 4
+                    width: chart.width - x
+                    height: chart.height
+                    spacing: 6
+                    Repeater {
+                        model: chart.days
+                        delegate: Item {
+                            id: col
+                            required property var modelData
+                            width: (parent.width - parent.spacing * (chart.days.length - 1)) / Math.max(1, chart.days.length)
+                            height: parent.height
+                            readonly property real barH: modelData.value > 0 ? Math.max(3, chart.plotH * modelData.ratio) : 0
+                            Rectangle {
+                                id: bar
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: Math.min(parent.width, 30)
+                                y: chart.topPad + chart.plotH - height
+                                height: col.barH
+                                radius: 3
+                                color: colHover.hovered ? Qt.lighter(popup.tokColor, 1.25) : popup.tokColor
+                                Behavior on height { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+                            }
+                            Text {
+                                visible: col.modelData.value > 0
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                y: bar.y - height - 1
+                                text: col.modelData.text
+                                color: popup.c.text
+                                font.pointSize: 7
+                                font.features: { "tnum": 1 }
+                            }
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                y: chart.topPad + chart.plotH + 3
+                                text: col.modelData.label
+                                color: popup.c.muted
+                                font.pointSize: 7
+                            }
+                            HoverHandler { id: colHover }
+                        }
+                    }
+                }
+            }
+        }
+
+        Card {
+            SectionTitle { text: popup.v ? popup.v.text.byModel : "" }
+            Text {
+                visible: td.empty
+                text: popup.v ? popup.v.text.noData : ""
+                color: popup.c.muted
+                font.pointSize: 9
+            }
+            Repeater {
+                model: td.p ? td.p.models : []
+                delegate: ColumnLayout {
+                    id: m
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: 3
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        Rectangle { width: 8; height: 8; radius: 2; color: m.modelData.color }
+                        Text {
+                            text: m.modelData.name
+                            color: popup.c.text
+                            font.pointSize: 9.5
+                            font.weight: Font.DemiBold
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                        }
+                        Text {
+                            visible: popup.tokGroup === "all"
+                            text: m.modelData.provider
+                            color: popup.c.muted
+                            font.pointSize: 8
+                        }
+                        Text {
+                            text: m.modelData.cost
+                            color: popup.c.muted
+                            font.pointSize: 9
+                            font.features: { "tnum": 1 }
+                        }
+                        Text {
+                            text: m.modelData.text
+                            color: popup.c.text
+                            font.pointSize: 9.5
+                            font.weight: Font.DemiBold
+                            font.features: { "tnum": 1 }
+                        }
+                    }
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: 5
+                        radius: 2.5
+                        color: popup.c.track
+                        Rectangle {
+                            width: parent.width * m.modelData.ratio
+                            height: parent.height
+                            radius: 2.5
+                            color: m.modelData.color
+                            Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+                        }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        Layout.bottomMargin: 4
+                        wrapMode: Text.WordWrap
+                        text: popup.v ? [popup.v.text.input + " " + m.modelData.parts.input,
+                                         popup.v.text.output + " " + m.modelData.parts.output,
+                                         popup.v.text.cacheRead + " " + m.modelData.parts.cacheRead,
+                                         popup.v.text.cacheWrite + " " + m.modelData.parts.cacheWrite].join(" · ") : ""
+                        color: popup.c.muted
+                        font.pointSize: 7.5
+                    }
+                }
+            }
+        }
+
+        Text {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            text: !popup.v || !td.p ? "" : popup.v.text.priceNote + (td.p.unpriced ? " " + popup.v.text.unpriced : "")
+            color: popup.c.muted
+            font.pointSize: 7.5
         }
     }
 }

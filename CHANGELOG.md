@@ -6,12 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- Tokens page (click the token strip): period and provider chips, total with what it would cost
+  at API list prices (cache included), input / output / cache split, daily columns labelled with
+  their values, and every model with its provider, cost and token split.
+
 ### Changed
 - Antigravity: while Antigravity runs, limits come from its local language server — the same
   groups as its "View Usage" panel (Gemini, Claude and GPT: 5 hours and weekly; Gemini 4 Argon:
   weekly). Each model keeps its own row; the selected (or tightest) model shows its group's
   5-hour limit on the outer ring and the weekly one on the inner ring. The IDE's account-status
   cache stays as the fallback. Per-model rows no longer carry initials.
+- Model names: Antigravity's variant ids ("gemini-3.8-flash-n", "claude-opus-5-5-medium") are
+  shown as one model ("Gemini 3.8 Flash", "Opus 5.5").
 
 ## [0.1.0] - 2026-10-29
 

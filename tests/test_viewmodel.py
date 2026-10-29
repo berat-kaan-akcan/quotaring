@@ -56,6 +56,26 @@ def test_model_name():
     assert viewmodel.model_name("claude-opus-5-5") == "Opus 5.5"
     assert viewmodel.model_name("claude-sonnet-4-5-20250929") == "Sonnet 4.5"
     assert viewmodel.model_name("gpt-5.1-codex") == "gpt-5.1-codex"
+    assert viewmodel.model_name("claude-opus-5-5-medium") == "Opus 5.5"
+    assert viewmodel.model_name("gemini-3.8-flash-n") == "Gemini 3.8 Flash"
+    assert viewmodel.model_name("gemini-4-argon-trial") == "Gemini 4 Argon"
+    assert viewmodel.model_name("gemini-pro-default") == "Gemini Pro"
+
+
+def test_cost_at_api_prices():
+    from quotaring import pricing
+    t = Tokens(input=1_000_000, output=1_000_000, cache_read=10_000_000, cache_write=1_000_000)
+    assert pricing.cost("claude-opus-5-5", t) == 4 + 20 + 2 + 5
+    assert pricing.cost("claude-opus-4-7", t) == 5 + 25 + 5 + 6.25
+    assert pricing.cost("gemini-3.8-flash-n", Tokens(input=1_000_000)) == 0.75
+    assert pricing.cost("mystery", t) is None
+    snap_ = ProviderSnapshot("claude", "Claude Code", LocalUsage(State.OK, aggregate(
+        [UsageEvent(NOW - 60, "claude-opus-5-5", Tokens(input=500_000, output=100_000))], NOW)), Quota(State.OK))
+    today = viewmodel.tokens_view([snap_], NOW)["data"]["claude"]["periods"]["today"]
+    assert today["costText"] == "$4.00" and not today["unpriced"]
+    assert today["models"][0]["cost"] == "$4.00" and today["models"][0]["parts"]["output"] == "100K"
+    assert today["providers"] == [{"name": "Claude", "color": viewmodel.COLORS["claude"], "text": "600K",
+                                   "cost": "$4.00"}]
 
 
 def test_ring_is_tightest_current_limit():
@@ -86,7 +106,10 @@ def test_tokens_view_groups_and_periods():
     assert [g["key"] for g in t["groups"]] == ["all", "claude", "codex"]
     all7 = t["data"]["all"]["periods"]["7d"]
     assert all7["total"] == 2 * (1520 + 10)
-    assert [m["name"] for m in all7["models"]] == ["model-a", "model-b"]
+    # The same model under two providers stays two rows: their prices can differ.
+    assert [(m["name"], m["provider"]) for m in all7["models"]] == [
+        ("model-a", "Claude"), ("model-a", "Claude"), ("model-b", "Claude"), ("model-b", "Claude")]
+    assert all7["unpriced"] and all7["costText"] == "$0.00" and all7["models"][0]["cost"] == "—"
     assert len(t["data"]["claude"]["daily"]) == 7
     assert json.loads(json.dumps(viewmodel.widget_view([snap()], NOW)))["ring"]["available"]
 

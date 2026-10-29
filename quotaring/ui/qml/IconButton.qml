@@ -5,7 +5,7 @@ import QtQuick.Controls.Basic  // own look on every OS; native styles ignore cus
 AbstractButton {
     id: btn
     property var c  // palette
-    property string kind  // "refresh" | "settings"
+    property string kind  // "refresh" | "settings" | "back"
     property string tip
     property bool spinning: false
     implicitWidth: 32
@@ -50,6 +50,15 @@ AbstractButton {
                     ctx.lineTo(ex - tx * 1.5 - nx * 3.2, ey - ty * 1.5 - ny * 3.2);
                     ctx.closePath();
                     ctx.fill();
+                } else if (btn.kind === "back") {
+                    ctx.lineWidth = 1.8;
+                    ctx.lineCap = "round";
+                    ctx.lineJoin = "round";
+                    ctx.beginPath();
+                    ctx.moveTo(c + 2.5, c - 5.5);
+                    ctx.lineTo(c - 3, c);
+                    ctx.lineTo(c + 2.5, c + 5.5);
+                    ctx.stroke();
                 } else {
                     ctx.lineWidth = width * 0.16;
                     for (let i = 0; i < 8; i++) {
