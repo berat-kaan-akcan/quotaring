@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import tempfile
 import time
+from dataclasses import replace
 
 from .. import paths
 from ..aggregate import aggregate, daily_totals, retention_cutoff
@@ -12,7 +13,11 @@ from ..model import LocalUsage, Quota, QuotaWindow, State, Tokens, UsageEvent
 from ..scan import FileStates, as_int, list_files, parse_ts, read_new_lines
 from .base import JsonLineProcess, Provider, QuotaError, classify_error_text, find_executable, with_retries
 
-SCAN_VERSION = 1
+SCAN_VERSION = 2  # 2: also records rejected-request limit hits
+
+# Limit names used by the CLI (get_usage keys and quotaLimits.rateLimitType).
+LIMIT_WINDOWS = {"five_hour": ("5-hour session", 300), "seven_day": ("Weekly", 10080),
+                 "seven_day_opus": ("Weekly · Opus", 10080), "seven_day_sonnet": ("Weekly · Sonnet", 10080)}
 
 
 def parse_claude_line(obj: dict) -> tuple[str, list] | None:
@@ -48,6 +53,51 @@ def parse_claude_line(obj: dict) -> tuple[str, list] | None:
     ]
 
 
+def parse_limit_hit(obj: dict) -> list | None:
+    """[ts, limit name, resets_at] from the CLI's record of a request the provider rejected.
+
+    Claude Code logs a synthetic assistant message with `quotaLimits` (status "rejected",
+    rateLimitType, resetsAt epoch seconds) when an account limit blocks a request.
+    """
+    q = obj.get("quotaLimits")
+    if not isinstance(q, dict) or q.get("status") != "rejected":
+        return None
+    ts = parse_ts(obj.get("timestamp"))
+    kind, reset = q.get("rateLimitType"), q.get("resetsAt")
+    if ts is None or not isinstance(kind, str) or not kind:
+        return None
+    if isinstance(reset, bool) or not isinstance(reset, (int, float)) or reset <= 0:
+        return None
+    return [ts, kind, float(reset)]
+
+
+def latest_limit_hit(states: FileStates) -> list | None:
+    hits = [e["limit"] for e in states.files.values() if isinstance(e.get("limit"), list)]
+    return max(hits, key=lambda h: h[0]) if hits else None
+
+
+def apply_limit_hit(quota: Quota, hit: list | None, now: float) -> Quota:
+    """A rejected request is newer evidence than a polled percentage: show that limit as
+    reached until its reset, even when the usage query lags, fails or is stale."""
+    if not hit or hit[2] <= now:
+        return quota
+    if quota.state not in (State.OK, State.STALE, State.UNAVAILABLE, State.RATE_LIMITED, State.PENDING):
+        return quota
+    _ts, kind, reset = hit
+    label, minutes = LIMIT_WINDOWS.get(kind, (kind, None))
+    windows = list(quota.windows) if quota.state in (State.OK, State.STALE) else []
+    for i, w in enumerate(windows):
+        if w.key == kind:
+            windows[i] = replace(w, used_percent=100.0, resets_at=reset, limited=True)
+            break
+    else:
+        windows.insert(0, QuotaWindow(kind, label, 100.0, reset, minutes, limited=True))
+    if quota.state in (State.OK, State.STALE):
+        return replace(quota, windows=windows)
+    return Quota(State.OK, windows, plan=quota.plan, source="Claude Code limit response (local log)",
+                 documented=False, updated_at=hit[0])
+
+
 def merge_record(old: list | None, new: list) -> list:
     """Streaming writes the same response several times with growing counts: keep the max."""
     if old is None:
@@ -65,12 +115,16 @@ def scan(states: FileStates, roots, now: float) -> bool:
         changed = True
         try:
             lines, offset = read_new_lines(
-                path, entry["offset"], lambda l: b'"assistant"' in l and b'"usage"' in l
+                path, entry["offset"],
+                lambda l: (b'"assistant"' in l and b'"usage"' in l) or b'"quotaLimits"' in l,
             )
         except OSError:
             continue  # retried next refresh: size/mtime stay stale
         events = entry["events"]
         for _off, obj in lines:
+            hit = parse_limit_hit(obj)
+            if hit and (not entry.get("limit") or hit[0] >= entry["limit"][0]):
+                entry["limit"] = hit
             parsed = parse_claude_line(obj)
             if parsed:
                 key, rec = parsed
@@ -97,7 +151,7 @@ def dedup_events(states: FileStates) -> list[UsageEvent]:
 def windows_from_usage(payload: dict) -> tuple[list[QuotaWindow], dict]:
     rl = payload.get("rate_limits") or {}
     windows: list[QuotaWindow] = []
-    for key, label, minutes in (("five_hour", "5-hour session", 300), ("seven_day", "Weekly", 10080)):
+    for key, (label, minutes) in LIMIT_WINDOWS.items():
         w = rl.get(key)
         if not isinstance(w, dict):
             continue
@@ -106,13 +160,22 @@ def windows_from_usage(payload: dict) -> tuple[list[QuotaWindow], dict]:
             continue
         windows.append(QuotaWindow(key, label, max(0.0, min(100.0, float(used))),
                                    parse_ts(w.get("resets_at")), minutes))
-    # Per-model weekly caps appear as "weekly_scoped" entries in the newer list.
+    # Per-model weekly caps: "model_scoped" (CLI >= 2.1.31x) or "weekly_scoped" limits (older).
+    for lim in rl.get("model_scoped") or []:
+        if not isinstance(lim, dict):
+            continue
+        model, pct = lim.get("display_name"), lim.get("utilization")
+        if (isinstance(model, str) and model and isinstance(pct, (int, float)) and not isinstance(pct, bool)
+                and f"Weekly · {model}" not in {w.label for w in windows}):
+            windows.append(QuotaWindow(f"weekly:{model}", f"Weekly · {model}",
+                                       max(0.0, min(100.0, float(pct))), parse_ts(lim.get("resets_at")), 10080))
     for lim in rl.get("limits") or []:
         if not isinstance(lim, dict) or lim.get("kind") != "weekly_scoped":
             continue
         model = (((lim.get("scope") or {}).get("model") or {}).get("display_name"))
         pct = lim.get("percent")
-        if model and isinstance(pct, (int, float)) and not isinstance(pct, bool):
+        if (model and isinstance(pct, (int, float)) and not isinstance(pct, bool)
+                and f"Weekly · {model}" not in {w.label for w in windows}):
             windows.append(QuotaWindow(f"weekly:{model}", f"Weekly · {model}",
                                        max(0.0, min(100.0, float(pct))), parse_ts(lim.get("resets_at")), 10080))
     extra = {}
@@ -155,6 +218,10 @@ class ClaudeProvider(Provider):
         super().__init__(settings)
         self.roots = roots
         self._states: FileStates | None = None
+        self.limit_hit: list | None = None  # set by the local scan, read by overlay_quota
+
+    def overlay_quota(self, quota: Quota, now: float) -> Quota:
+        return apply_limit_hit(quota, self.limit_hit, now)
 
     def _roots(self):
         return self.roots if self.roots is not None else [paths.claude_home() / "projects"]
@@ -169,6 +236,7 @@ class ClaudeProvider(Provider):
             self._states = FileStates(data if data.get("version") == SCAN_VERSION else None)
         if scan(self._states, roots, now):
             self.save_scan_cache({"version": SCAN_VERSION, **self._states.to_dict()})
+        self.limit_hit = latest_limit_hit(self._states)
         events = dedup_events(self._states)
         return LocalUsage(State.OK, aggregate(events, now), source=str(roots[0]),
                           exact=True, files=len(self._states.files), daily=daily_totals(events, now))
@@ -183,6 +251,8 @@ class ClaudeProvider(Provider):
         if payload.get("rate_limits_available") is not True:
             return Quota(State.UNSUPPORTED, plan=payload.get("subscription_type"),
                          detail="No subscription limits for this account (API key or unsupported plan)")
+        if payload.get("rate_limits") is None:
+            return Quota(State.UNAVAILABLE, detail="Usage endpoint returned no data")
         windows, extra = windows_from_usage(payload)
         if not windows:
             return Quota(State.UNAVAILABLE, detail="Usage response had no limit windows")

@@ -78,6 +78,11 @@ def updated(ts: float | None, now: float) -> str:
     return tr("updated {time} ({age})").format(time=datetime.fromtimestamp(ts).strftime('%H:%M'), age=age(ts, now))
 
 
+def window_pct(w, now: float) -> str:
+    """Percentage text for a quota window, or "Limit reached" while the provider rejects requests."""
+    return tr("Limit reached") if w.active_limit(now) else pct(w.used_percent)
+
+
 def summary(snapshots, now: float) -> str:
     """One line per provider for the tray tooltip. Quota only when provider-reported."""
     lines = []
@@ -89,7 +94,7 @@ def summary(snapshots, now: float) -> str:
                 names = [tr_label(w.label).split(" · ")[0] for w in q.windows[:2]]
             else:
                 names = [w.label.split(" ")[0] for w in q.windows[:2]]
-            parts.append(" · ".join(f"{n} {pct(w.used_percent)}" for n, w in zip(names, q.windows[:2])))
+            parts.append(" · ".join(f"{n} {window_pct(w, now)}" for n, w in zip(names, q.windows[:2])))
             if q.state == State.STALE:
                 parts[-1] += tr(" (stale)")
         per = loc.period("today") if loc.state in (State.OK, State.STALE) else None

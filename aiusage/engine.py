@@ -14,6 +14,8 @@ from .model import LocalUsage, ProviderSnapshot, Quota, State
 log = logging.getLogger(__name__)
 CACHE_VERSION = 1
 RATE_LIMIT_BACKOFF = 15 * 60
+NEAR_LIMIT_PERCENT = 80
+NEAR_LIMIT_INTERVAL = 120  # poll faster close to a limit so "reached" shows up promptly
 
 
 def merge_local(prev: LocalUsage | None, new: LocalUsage) -> LocalUsage:
@@ -37,8 +39,11 @@ def merge_quota(prev: Quota | None, new: Quota) -> Quota:
 
 
 class Engine:
-    def __init__(self, settings, providers, cache_path: Path | None = None):
+    def __init__(self, settings, providers, cache_path: Path | None = None, mark_stale: bool = True):
+        """mark_stale=False (one-shot widget runs): cached quota inside its refresh interval is
+        shown as-is; it is still the latest provider-reported value."""
         self.settings = settings
+        self.mark_stale = mark_stale
         self.providers = {p.id: p for p in providers}
         self.cache_path = cache_path or paths.cache_dir() / f"snapshots-v{CACHE_VERSION}.json"
         self.lock = threading.Lock()
@@ -54,6 +59,10 @@ class Engine:
         data = read_json(self.cache_path, {})
         if not isinstance(data, dict) or data.get("version") != CACHE_VERSION:
             return
+        nqa = data.get("next_quota_at")
+        if isinstance(nqa, dict):
+            self.next_quota_at = {k: float(v) for k, v in nqa.items()
+                                  if k in self.snapshots and isinstance(v, (int, float)) and not isinstance(v, bool)}
         for pid, raw in (data.get("snapshots") or {}).items():
             if pid not in self.snapshots:
                 continue
@@ -62,6 +71,9 @@ class Engine:
             except (KeyError, ValueError, TypeError):
                 continue
             # Cached values are shown as stale until a fresh refresh succeeds.
+            if not self.mark_stale:
+                self.snapshots[pid] = snap
+                continue
             if snap.local.state == State.OK:
                 snap.local.state = State.STALE
                 snap.local.detail = "Cached result; refreshing"
@@ -73,7 +85,8 @@ class Engine:
     def save_cache(self) -> None:
         with self.lock:
             data = {"version": CACHE_VERSION,
-                    "snapshots": {pid: s.to_dict() for pid, s in self.snapshots.items()}}
+                    "snapshots": {pid: s.to_dict() for pid, s in self.snapshots.items()},
+                    "next_quota_at": dict(self.next_quota_at)}
         try:
             write_json(self.cache_path, data)
         except OSError:
@@ -120,15 +133,19 @@ class Engine:
         with self.lock:
             snap = self.snapshots[pid]
             snap.local = merge_local(snap.local, usage)
+            snap.quota = self.providers[pid].overlay_quota(snap.quota, usage.updated_at or time.time())
             return snap
 
     def apply_quota(self, pid: str, quota: Quota, now: float | None = None) -> ProviderSnapshot:
         now = now or time.time()
         with self.lock:
             snap = self.snapshots[pid]
-            snap.quota = merge_quota(snap.quota, quota)
+            snap.quota = self.providers[pid].overlay_quota(merge_quota(snap.quota, quota), now)
             interval = self.settings.quota_refresh_seconds
             if quota.state == State.RATE_LIMITED:
                 interval = max(interval, RATE_LIMIT_BACKOFF)
+            elif quota.state == State.OK and any(
+                    NEAR_LIMIT_PERCENT <= w.used_percent < 100 and not w.limited for w in quota.windows):
+                interval = min(interval, NEAR_LIMIT_INTERVAL)
             self.next_quota_at[pid] = now + interval
             return snap

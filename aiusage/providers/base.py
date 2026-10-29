@@ -211,6 +211,10 @@ class Provider:
         return Quota(State.UNAVAILABLE, detail="No verified quota source")
 
     # -- scan cache -----------------------------------------------------
+    def overlay_quota(self, quota: Quota, now: float) -> Quota:
+        """Hook for newer limit evidence found by the local scan; default: unchanged."""
+        return quota
+
     def scan_cache_path(self) -> Path:
         return paths.cache_dir() / f"scan-{self.id}-v1.json"
 

@@ -1,0 +1,16 @@
+{
+    "KPlugin": {
+        "Authors": [{ "Name": "Berat" }],
+        "Category": "System Information",
+        "Description": "Claude Code, Codex and Antigravity usage: provider-reported quota and local token activity",
+        "Description[tr]": "Claude Code, Codex ve Antigravity kullanımı: sağlayıcının bildirdiği kota ve yerel token etkinliği",
+        "Icon": "utilities-system-monitor",
+        "Id": "org.aiusage.widget",
+        "License": "MIT",
+        "Name": "AI Usage",
+        "Name[tr]": "AI Kullanımı",
+        "Version": "0.1.0"
+    },
+    "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

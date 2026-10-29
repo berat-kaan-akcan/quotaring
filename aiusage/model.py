@@ -133,6 +133,10 @@ class QuotaWindow:
     used_percent: float
     resets_at: float | None = None  # epoch seconds
     window_minutes: int | None = None
+    limited: bool = False  # the provider rejected a request for this limit (until resets_at)
+
+    def active_limit(self, now: float) -> bool:
+        return self.limited and (self.resets_at is None or self.resets_at > now)
 
     def to_dict(self) -> dict:
         return asdict(self)

@@ -280,8 +280,11 @@ class ProviderCard(QFrame):
             for row, w in enumerate(q.windows):
                 label = QLabel(tr_label(w.label))
                 bar = Bar(self.palette_)
-                bar.set(w.used_percent, stale or (w.resets_at is not None and w.resets_at <= now))
-                pct = QLabel(fmt.pct(w.used_percent))
+                limited = w.active_limit(now)
+                bar.set(w.used_percent, not limited and (stale or (w.resets_at is not None and w.resets_at <= now)))
+                pct = QLabel(fmt.window_pct(w, now))
+                if limited:
+                    pct.setStyleSheet(f"color: {self.palette_.bad}; font-weight: 600;")
                 pct.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 pct.setMinimumWidth(36)
                 reset = _small(fmt.resets(w.resets_at, now))

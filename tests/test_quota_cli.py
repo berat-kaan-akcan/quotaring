@@ -40,6 +40,17 @@ for line in sys.stdin:
             reply({{"rate_limits_available": False, "subscription_type": None}})
         elif MODE == "malformed":
             reply("a string")
+        elif MODE == "nolimits":
+            reply({{"subscription_type": "pro", "rate_limits_available": True, "rate_limits": None}})
+        elif MODE == "v312":
+            reply({{"subscription_type": "pro", "rate_limits_available": True, "rate_limits": {{
+                "five_hour": {{"utilization": 100, "resets_at": "2030-01-01T10:00:00Z"}},
+                "seven_day": {{"utilization": 40, "resets_at": "2030-01-05T10:00:00Z"}},
+                "seven_day_sonnet": {{"utilization": 9, "resets_at": "2030-01-05T10:00:00Z"}},
+                "model_scoped": [{{"display_name": "Fable", "utilization": 55, "resets_at": "2030-01-05T10:00:00Z"}},
+                                 {{"display_name": "Sonnet", "utilization": 9, "resets_at": None}},
+                                 {{"display_name": "Bad", "utilization": None, "resets_at": None}}],
+                "extra_usage": None}}}})
         else:
             reply({{"subscription_type": "max", "rate_limits_available": True, "rate_limits": {{
                 "five_hour": {{"utilization": 31, "resets_at": "2030-01-01T10:00:00Z"}},
@@ -70,7 +81,16 @@ def test_claude_quota_ok(settings, tmp_path):
     assert q.documented is False and q.updated_at == NOW
 
 
+def test_claude_quota_cli_2_1_312_shape(settings, tmp_path):
+    q = claude(settings, tmp_path, "v312")
+    assert q.state == State.OK
+    assert [(w.key, w.label, w.used_percent) for w in q.windows] == [
+        ("five_hour", "5-hour session", 100.0), ("seven_day", "Weekly", 40.0),
+        ("seven_day_sonnet", "Weekly · Sonnet", 9.0), ("weekly:Fable", "Weekly · Fable", 55.0)]
+
+
 @pytest.mark.parametrize("mode,state", [
+    ("nolimits", State.UNAVAILABLE),
     ("nologin", State.NOT_AUTHENTICATED),
     ("auth", State.NOT_AUTHENTICATED),
     ("ratelimit", State.RATE_LIMITED),
@@ -146,6 +166,14 @@ def test_codex_quota_ok(settings, tmp_path):
     assert q.state == State.OK and q.documented
     assert q.plan == "Pro"
     assert [(w.label, w.used_percent) for w in q.windows] == [("5-hour session", 12.0), ("Weekly", 64.0)]
+
+
+def test_claude_quota_cli_2_1_312_shape(settings, tmp_path):
+    q = claude(settings, tmp_path, "v312")
+    assert q.state == State.OK
+    assert [(w.key, w.label, w.used_percent) for w in q.windows] == [
+        ("five_hour", "5-hour session", 100.0), ("seven_day", "Weekly", 40.0),
+        ("seven_day_sonnet", "Weekly · Sonnet", 9.0), ("weekly:Fable", "Weekly · Fable", 55.0)]
 
 
 @pytest.mark.parametrize("mode,state", [

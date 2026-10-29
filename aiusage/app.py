@@ -12,12 +12,11 @@ from PySide6.QtCore import QLockFile, QObject, QRunnable, Qt, QThreadPool, QTime
 from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPainter, QPixmap, QShortcut
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-from . import __version__, autostart, paths, settings as settings_mod
+from . import __version__, alerts, autostart, paths, settings as settings_mod
 from .engine import Engine
-from .model import State
 from .providers import ALL
 from .providers.base import shutdown_children
-from .i18n import set_language, tr, tr_label
+from .i18n import set_language, tr
 from .ui import format as fmt, theme
 from .ui.settings_dialog import SettingsDialog
 from .ui.window import MainWindow
@@ -76,7 +75,7 @@ class Controller(QObject):
         self.pool.setMaxThreadCount(4)
         self.signals = _Signals()
         self.signals.done.connect(self._on_done)
-        self.notified: set[tuple[str, str, float | None]] = set()
+        self.seen_alerts = alerts.Seen()
 
         self.palette = theme.resolve(self.settings.theme)
         self.window = MainWindow([(p.id, p.name) for p in self.providers], self.palette, self.settings)
@@ -163,8 +162,7 @@ class Controller(QObject):
         if result is not None:
             snap = (self.engine.apply_local if kind == "local" else self.engine.apply_quota)(pid, result)
             self.window.cards[pid].update_snapshot(snap)
-            if kind == "quota":
-                self._maybe_notify(snap)
+            self._maybe_notify(snap)  # local scans can reveal a limit hit before the next quota poll
         if not self.engine.busy:
             self.engine.save_cache()
         self._update_status()
@@ -179,17 +177,10 @@ class Controller(QObject):
             self.window.cards[pid].update_snapshot(snap)
 
     def _maybe_notify(self, snap):
-        thr = self.settings.notify_threshold
-        if not thr or self.tray is None or snap.quota.state != State.OK:
-            return  # only verified, fresh quota data triggers notifications
-        for w in snap.quota.windows:
-            key = (snap.provider_id, w.key, w.resets_at)
-            if w.used_percent >= thr and key not in self.notified:
-                self.notified.add(key)
-                self.tray.showMessage(tr("{name}: {label} at {pct}%").format(
-                                          name=snap.name, label=tr_label(w.label), pct=f"{w.used_percent:.0f}"),
-                                      tr("Reported by the provider's account interface."),
-                                      QSystemTrayIcon.Warning, 8000)
+        if self.tray is None:
+            return
+        for a in self.seen_alerts.take_new(alerts.pending([snap], self.settings.notify_threshold, time.time())):
+            self.tray.showMessage(a["title"], a["body"], QSystemTrayIcon.Warning, 8000)
 
     # -- window / settings ----------------------------------------------
     def apply_theme(self):
@@ -274,6 +265,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--allow-multiple", action="store_true", help="skip the single-instance check")
     parser.add_argument("--xwayland", action="store_true",
                         help="on Wayland, run through XWayland so keep-above and saved position work")
+    parser.add_argument("--widget-json", action="store_true",
+                        help="refresh (quota only when due) and print display-ready JSON for the Plasma widget")
     parser.add_argument("--print", dest="print_json", action="store_true",
                         help="collect once and print the snapshot as JSON (no window)")
     args = parser.parse_args(argv)
@@ -282,6 +275,8 @@ def main(argv: list[str] | None = None) -> int:
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     if args.print_json:
         return print_once()
+    if args.widget_json:
+        return widget_json()
 
     if args.xwayland and os.environ.get("WAYLAND_DISPLAY"):
         os.environ["QT_QPA_PLATFORM"] = "xcb"
@@ -321,4 +316,42 @@ def print_once() -> int:
         for per in snap["local"]["periods"]:
             per.pop("by_model", None) if per["key"] in ("30d", "all") else None
     print(json.dumps({"cache_dir": str(paths.cache_dir()), "providers": out}, indent=1))
+    return 0
+
+
+def widget_json() -> int:
+    """One refresh for the Plasma widget: local always, quota only when its interval is due."""
+    import json
+    from concurrent.futures import ThreadPoolExecutor
+
+    from . import viewmodel
+
+    s = settings_mod.load()
+    set_language(s.language)
+    eng = Engine(s, [P(s) for P in ALL], mark_stale=False)
+    new_alerts = []
+    lock_dir = paths.cache_dir()
+    lock_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    lock = QLockFile(str(lock_dir / "widget-refresh.lock"))
+    if lock.tryLock(60_000):  # another widget instance refreshing: wait for it, then reuse
+        try:
+            eng = Engine(s, [P(s) for P in ALL], mark_stale=False)  # reload what it wrote
+            now = time.time()
+            with ThreadPoolExecutor(6) as ex:
+                local = {pid: ex.submit(eng.run_local, pid) for pid in eng.providers}
+                quota = {pid: ex.submit(eng.run_quota, pid) for pid in eng.providers
+                         if eng.quota_due(pid, now)}
+            for pid, f in local.items():
+                eng.apply_local(pid, f.result())
+            for pid, f in quota.items():
+                eng.apply_quota(pid, f.result(), now)
+            eng.save_cache()
+            new_alerts = alerts.Seen().take_new(
+                alerts.pending(eng.snapshots.values(), s.notify_threshold, time.time()))
+        finally:
+            lock.unlock()
+    view = viewmodel.widget_view(eng.snapshots.values(), time.time())
+    view["notify"] = [{"title": a["title"], "text": a["body"]} for a in new_alerts]
+    sys.stdout.write(json.dumps(view, ensure_ascii=False))
+    sys.stdout.flush()
     return 0
