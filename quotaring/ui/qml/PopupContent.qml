@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic  // own look on every OS; native styles ignore custom backgrounds
 import QtQuick.Layouts
 import "Theme.js" as T
 

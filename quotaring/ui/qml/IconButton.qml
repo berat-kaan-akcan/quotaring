@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic  // own look on every OS; native styles ignore custom backgrounds
 
 // Drawn rather than glyphs: symbol fonts differ between systems.
 AbstractButton {
