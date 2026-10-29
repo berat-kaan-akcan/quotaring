@@ -58,11 +58,11 @@
 
 - 🟢 **One glance.** The tray icon is a ring around the tightest limit left, turning amber and red as it runs out.
 - 🧭 **Every limit in one popup.** 5-hour and weekly windows for Claude Code and Codex; for Antigravity, every model in its own row with its group's 5-hour and weekly limit on two rings — the same numbers as its *View Usage* panel, Gemini 4 Argon included.
-- 📊 **Where the tokens went.** Today, 5 hours, 7 days, 30 days or all: totals, the input / output / cache split, daily columns with their values, and every model — for all tools or one.
+- 📊 **Where the tokens went.** Today, 5 hours, 7 days, 30 days or all scanned (last 35 days for JSONL logs): totals, the input / output / cache split, daily columns with their values, and every model — for all tools or one.
 - 💵 **What it would cost on the API.** Each model and total is priced at API list rates, cache included. Prices update themselves weekly.
 - 🔒 **No credentials touched.** Limits come from each tool's own CLI or local server; files are opened read-only.
-- 🔔 **Notifications** when a limit crosses your threshold (default 90 %).
-- 🖥️ **Linux and Windows.** GNOME and KDE, X11 and Wayland (layer-shell popup on Plasma); English and Turkish.
+- 🔔 **Notifications** once per limit window: warning levels of your choice (50–95 %), limit full, limit reset; per provider, with a mute in the tray menu. Each notification carries the limit's ring as its icon, and clicking one opens the popup.
+- 🖥️ **Linux and Windows.** GNOME and KDE, X11 and Wayland (layer-shell popup on Plasma); runs from source on macOS; English and Turkish.
 
 ## Download
 
@@ -76,7 +76,8 @@ Get the latest build from the [Releases page](https://github.com/berat-kaan-akca
 | Windows 10/11 | `quotaring-<ver>-setup.exe` | per-user install, no admin rights |
 | Windows, portable | `quotaring-<ver>-windows-x64.zip` | extract, run `quotaring.exe` |
 
-`SHA256SUMS.txt` on each release lists the file checksums.
+`SHA256SUMS.txt` on each release lists the file checksums. On Arch / CachyOS, you can also build
+a native pacman package with `./packaging/arch/build.sh -s` (see [Linux packages](#linux-packages)).
 
 > [!NOTE]
 > The Windows builds are not code-signed, so SmartScreen may show "Windows protected your PC".
@@ -89,22 +90,25 @@ On GNOME, enable the *AppIndicator and KStatusNotifierItem Support* extension to
 
 **Tray icon.** A ring around the tightest current limit, with its number (percent left, or used —
 your choice in Settings). Hover it for each provider's limits; click it to open the popup above the
-panel; right-click for Refresh, Settings and Quit. Click anywhere else or press Esc to close the popup.
+panel; right-click for Show / hide, Refresh, Settings, Notifications (on/off, mute for 1 hour or
+until tomorrow) and Quit. Click anywhere else or press Esc to close the popup.
 
 **Limits page.** One card per provider. The outer ring is the 5-hour window, the inner ring the
-weekly one, in the provider's colour; the middle shows the tightest limit. Each row below gives a
-limit and when it resets. Hover a row to light it on the ring; click it to keep it there.
-Antigravity lists its models one by one — Opus, Sonnet and GPT-OSS share one pool there, so their
-numbers match — and the selected model's 5-hour and weekly limits take the two rings.
-Drag a card (from anywhere on it) to put the cards in the order you like; the order is saved.
+weekly one, in the provider's colour; the middle shows the tightest limit. Hover either ring for
+its exact value and reset tooltip, or hover a row below to preview it on the ring; click a row to
+keep it there (click again to unpin). Antigravity lists its models one by one — Opus, Sonnet and
+GPT-OSS share one pool there, so their numbers match — and the selected model's 5-hour and weekly
+limits take the two rings. Drag a card (from anywhere on it) to put the cards in the order you
+like; the order is saved. The token strip at the bottom shows today and 7-day totals with a 7-day
+bar chart (filterable by provider).
 
 **Tokens page.** Click the token strip at the bottom of the Limits page. Pick a period and a
 provider; you get the total, what it would cost at API prices, the input / output / cache split,
 the last 7 days as columns labelled with their values, and every model with its provider, cost
 and token split.
 
-**Settings page.** The gear icon, *Settings…* in the tray menu, or Ctrl+,. Every change applies
-as you make it.
+**Settings page.** The gear icon, *Settings…* in the tray menu, or Ctrl+, (click the gear or `←`
+to return). Every change applies as you make it.
 
 The popup grows with its page up to 660 px (less on a small screen); longer pages scroll under
 the header. Keys: F5 / Ctrl+R refresh · Ctrl+, settings · Esc close · Ctrl+Q quit.
@@ -123,8 +127,8 @@ The popup keeps two kinds of numbers apart:
 | **Tokens** | Tokens recorded in local logs, and what they would cost on the API | Local history files, read-only; API list prices |
 
 Local token counts are **not** quota: remaining quota is never derived from them. If a limit
-can't be retrieved, the card says why — not signed in, no limit data, limit check paused, not
-installed — and old values are marked with when they were last updated.
+can't be retrieved, the card says why — not signed in, no plan limits, limit check paused, no
+limit data — and old values are dimmed and marked with when they were last updated.
 
 The cost is an estimate of what the same tokens would cost at the provider's pay-as-you-go API
 prices; subscriptions are not billed per token. Prices come from
@@ -137,9 +141,9 @@ the Tokens page shows their date. Models without a known price are left out of t
 
 | Provider | Local tokens | Account limits |
 |---|---|---|
-| **Claude Code** | `~/.claude/projects/**/*.jsonl` (exact counts per API response, deduplicated) | 5-hour and weekly limits, plus per-model weekly caps, via the `claude` CLI's `get_usage` control request. **Experimental and undocumented**; verified with Claude Code 2.1.312. |
-| **Codex** | `~/.codex/sessions` and `archived_sessions` rollout logs | ChatGPT-plan limits via `codex app-server` → `account/rateLimits/read` (documented). API-key accounts show *Unsupported*. **Not yet tested on a real Codex install.** |
-| **Antigravity** | `~/.gemini/antigravity{,-ide,-cli}/conversations/*.db` (token counts per model response; internal format, opened read-only) | While Antigravity runs (Linux and macOS): the *View Usage* groups — Gemini, and Claude and GPT, with 5-hour and weekly limits; Gemini 4 Argon, weekly — from its local language server. Otherwise, and on Windows, per-model limits from the Antigravity IDE's cached account status (shown *stale* after 6 h). Both undocumented. Covers the `agy` CLI too. |
+| **Claude Code** | `~/.claude/projects/**/*.jsonl` (`$CLAUDE_CONFIG_DIR` if set; last 35 days, exact counts per API response, deduplicated) | 5-hour and weekly limits, plus per-model weekly caps, via the `claude` CLI's `get_usage` control request (**experimental and undocumented**; verified with Claude Code 2.1.312). Rejected-request `quotaLimits` entries in local logs also mark a hit limit immediately until its reset. |
+| **Codex** | `~/.codex/sessions` and `archived_sessions` rollout logs (`$CODEX_HOME` if set; last 35 days) | ChatGPT-plan limits via `codex app-server` → `account/rateLimits/read` (documented). API-key accounts show *No plan limits for this account*. **Not yet tested on a real Codex install.** |
+| **Antigravity** | `~/.gemini/antigravity{,-ide,-cli}/conversations/*.db` (token counts per model response; internal format, opened read-only) | While Antigravity runs (Linux and macOS): the *View Usage* groups — Gemini, and Claude and GPT, with 5-hour and weekly limits; Gemini 4 Argon, weekly — from its local language server. Otherwise, and on Windows, per-model limits from the Antigravity IDE's cached account status (marked stale with its age after 6 h). Both undocumented. Covers the `agy` CLI too. |
 
 The weekly Claude limit is account-wide and includes claude.ai chats, which local Claude Code logs
 do not contain.
@@ -148,17 +152,19 @@ do not contain.
 
 | Section | Options |
 |---|---|
-| Appearance | Theme (system / light / dark) · accent colour (Slate, Ink or Amber; the tray and app icon follow it) · language (system, English, Türkçe) · limits as percent left or used |
-| General | Start at login · update API prices · quota notification threshold (off, 80, 90 or 95 %; only for fresh, provider-reported values) |
+| Appearance | Theme (system / light / dark) · accent colour (Slate, Ink or Amber; the app icon follows it, the tray ring follows the system panel's light/dark theme, and Amber shifts warnings to orange) · language (system, English, Türkçe) · limits as percent left or used |
+| General | Start at login · update API prices |
+| Notifications | On / off · warning levels (any of 50, 75, 80, 90, 95 %; only fresh, provider-reported values; jumps fire only the highest crossed level) · limit full · limit reset (off by default) · which providers · test notification. The tray menu toggles them or mutes for an hour or until tomorrow (muted alerts still count as seen, so unmuting never floods) |
 | Providers | Per provider: track it, and check its account limits |
 | Advanced | Local refresh interval (60 s) · quota refresh interval (300 s) · query timeout (20 s) · custom `claude` / `codex` paths |
 
 Settings are saved as JSON in `$XDG_CONFIG_HOME/quotaring/settings.json` (default `~/.config/…`)
-or `%APPDATA%\QuotaRing\settings.json`. The limit you keep on a ring is saved too.
+or `%APPDATA%\QuotaRing\settings.json`. Card order and the limit you pin on a ring are saved too.
 
-The cache (last good results, incremental-scan state, downloaded prices) lives in
+The cache (last good results, incremental-scan state, downloaded prices, shown-alert keys) lives in
 `$XDG_CACHE_HOME/quotaring/` or `%LOCALAPPDATA%\QuotaRing\Cache\`. It holds model names, token
-counts, message ids and history file paths — no conversation text. Delete it any time; it is rebuilt.
+counts, message ids, alert window keys and history file paths — no conversation text. Delete it any
+time; it is rebuilt.
 
 **Start at login** writes `~/.config/autostart/quotaring.desktop` on Linux (GNOME and KDE) and
 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\QuotaRing` on Windows (the installer's
@@ -169,7 +175,7 @@ counts, message ids and history file paths — no conversation text. Delete it a
 - Provider files are only **read**: JSONL files in binary read mode, SQLite with `mode=ro`.
 - QuotaRing **never reads, stores or logs credentials**. Limits come from the tools themselves,
   which use their own login:
-    - `claude --safe-mode --print --input-format stream-json --output-format stream-json
+    - `claude --safe-mode --print --verbose --input-format stream-json --output-format stream-json
       --no-session-persistence --permission-mode dontAsk --tools ""` in an empty temp folder,
       sending only the `initialize` and `get_usage` control requests (no model turn, no tools, no hooks).
     - `codex app-server`, sending `initialize`, `account/read` (without token refresh) and
@@ -177,51 +183,56 @@ counts, message ids and history file paths — no conversation text. Delete it a
     - Antigravity's own language server on 127.0.0.1 (`agy --hub`; port and CSRF token from its
       command line), asked `RetrieveUserQuotaSummary` and, for model names only, `GetUserStatus`.
       Only processes owned by the current user are considered, so another user cannot feed it
-      made-up limits. Nothing from it is kept except the limits.
+      made-up limits. When Antigravity is not running (or on Windows), its IDE `state.vscdb` is
+      queried read-only for the single `antigravityUnifiedStateSync.userStatus` key, decoding only
+      model quota fractions, reset timestamps and plan tier (never OAuth tokens, name or email).
 - The only requests to the internet are the two public price lists for the cost estimate, at
   most once a week, with no identifiers. Turn off *Update API prices* to use the built-in table only.
 - The CLIs' stderr is discarded. Every query has a timeout and at most 3 attempts with backoff;
-  rate limiting (HTTP 429) backs the quota check off to at least 15 minutes.
+  quota checks speed up to every 2 minutes above 80 % used, and rate limiting (HTTP 429) backs
+  them off to at least 15 minutes.
 - Logs contain paths and error types only. `--debug` adds tracebacks.
 
 ## Platform notes and limitations
 
 - **Wayland:** clients cannot place their own windows. On KDE Plasma (and other layer-shell
   compositors) the popup is a layer-shell surface anchored by the panel, through KDE's
-  `layer-shell-qt` QML module (`/usr/lib/qt6/qml/org/kde/layershell`). PySide6 from pip only
-  loads it when the system Qt has the same version; otherwise, and on GNOME, the app runs
-  through XWayland and places the popup itself. `--xwayland` forces that.
+  `layer-shell-qt` QML module (`/usr/lib/qt6/qml/org/kde/layershell` and multiarch equivalents).
+  On Plasma, KWin's D-Bus scripting interface (`org.kde.KWin`) is asked for the cursor X position
+  so the popup opens directly above the clicked tray icon (else in the panel corner). PySide6 from
+  pip only loads `layer-shell-qt` when the system Qt has the same version; otherwise, and on GNOME,
+  the app runs through XWayland and places the popup itself. `--xwayland` forces that.
 - **GNOME tray:** GNOME has no tray by default. Install the *AppIndicator and KStatusNotifierItem
   Support* extension. Without a tray the popup is an ordinary window that stays open; closing it quits.
 - A harmless `qt.qpa.services: Failed to register with host portal` warning appears when running
   from source without an installed `.desktop` file.
 - PySide6 6.12 aborts at exit on Python < 3.12 (a reference-counting bug in its bindings);
-  `requirements.txt` therefore selects PySide6 < 6.12 on those Python versions.
+  `requirements.txt` and `pyproject.toml` therefore select `PySide6-Essentials < 6.12` on those Python versions.
 - Antigravity's database format is internal and may change; unreadable data is skipped and the
   number of skipped databases is shown.
-- Claude's `get_usage` is experimental; a CLI update can turn it into *Unsupported* or *Unavailable*.
+- Claude's `get_usage` is experimental; a CLI update can turn it into *No plan limits* or *No limit data*.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| Claude/Codex limits "Not installed" but the CLI is installed | Set its full path under Settings → Advanced (GUI sessions may not have `~/.local/bin` on `PATH`). The widget also looks in `~/.local/share/claude/versions/` for the native installer. |
-| Limits "Not authenticated" | Run `claude` or `codex login` once in a terminal. |
-| Limits "Unsupported" | API-key account (no subscription limits) or a CLI version without the query. |
-| Antigravity shows one value per model, marked stale | Antigravity isn't running (or this is Windows): the IDE's cached status is shown. Open Antigravity to get live limits. |
-| Numbers look old | Press ⟳. *Stale* means the last refresh failed and the previous values are shown. |
+| Claude/Codex card says "No limit data" (or is missing) though the CLI is installed | Set its full path under Settings → Advanced (GUI sessions may not have `~/.local/bin` on `PATH`). The widget also looks in `~/.local/share/claude/versions/` for the native installer, and honours `$CLAUDE_CONFIG_DIR` / `$CODEX_HOME`. |
+| Card says "Not signed in · run … login" | Run `claude` or `codex login` once in a terminal. |
+| Card says "No plan limits for this account" | API-key account (no subscription limits) or a CLI version without the query. |
+| Antigravity shows one value per model, dimmed with "updated … ago" | Antigravity isn't running (or this is Windows): the IDE's cached status is shown. Open Antigravity to get live limits. |
+| Numbers look old or dimmed with "updated … ago" | Press ⟳. Dimmed values mean the last refresh failed and the previous reading is kept visible. |
 | Want to inspect raw output | `python -m quotaring --print` |
 | "already running" but no window | It is in the tray: click the icon. A lock left by a crashed run is taken over automatically. |
 
 ## Build from source
 
-### Run from source (any OS)
-Requires Python 3.10+.
+### Run from source (Linux, Windows, macOS)
+Requires Python 3.10+. (On macOS, running from source works; *Start at login* is Linux/Windows only.)
 
 ```sh
 git clone https://github.com/berat-kaan-akcan/quotaring.git && cd quotaring
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt         # Windows: .venv\Scripts\pip ...
+.venv/bin/pip install -r requirements.txt         # Windows: .venv\Scripts\pip ... (or: pip install -e .)
 .venv/bin/python -m quotaring                       # Windows: .venv\Scripts\pythonw -m quotaring
 ```
 
@@ -256,10 +267,13 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 The README images are rendered from synthetic demo data at 2× scale: `.venv/bin/python docs/screenshots.py`.
 
 Layout: `quotaring/model.py` (data types), `quotaring/providers/` (one module per provider behind
-`providers/base.py`), `quotaring/engine.py` (caching, stale handling, scheduling),
-`quotaring/pricing.py` (API prices), `quotaring/viewmodel.py` (display-ready view for the popup),
-`quotaring/ui/` (tray popup with its Limits, Tokens and Settings pages: `popup.py`,
-`settings_form.py`, `qml/`), `packaging/` (PyInstaller spec, Linux/Arch/Windows packaging).
+`providers/base.py`), `quotaring/aggregate.py` (periods and 35-day retention), `quotaring/engine.py`
+(caching, stale handling, scheduling), `quotaring/alerts.py` (once-per-window notifications),
+`quotaring/pricing.py` (API prices), `quotaring/i18n.py` (English / Turkish strings),
+`quotaring/autostart.py` (login autostart), `quotaring/viewmodel.py` (display-ready view for the
+popup), `quotaring/ui/` (tray popup with its Limits, Tokens and Settings pages: `popup.py`,
+`cursor_probe.py`, `settings_form.py`, `qml/`), `packaging/` (PyInstaller spec, Linux/Arch/Windows
+packaging).
 
 ## License
 

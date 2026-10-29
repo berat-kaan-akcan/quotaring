@@ -16,8 +16,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   and cached, OpenRouter's model list fills in models it lacks (Gemini 4 Argon), and a built-in
   table covers the rest. *Update API prices* in Settings turns
   it off.
+- Notification settings of their own: several warning levels, limit full, limit reset (off by
+  default), per provider, and a test button; the tray menu turns them off or mutes them for an
+  hour or until tomorrow. Older single-threshold settings carry over.
 
 ### Fixed
+- The same quota notification no longer repeats on every poll: providers report the reset time
+  with a little jitter, and each new value counted as a new limit window.
+- The provider card order is now really restored after a restart.
 - Hovering a ring showed an empty box instead of its tooltip. Tooltips now each have their own
   instance and use the popup's colours.
 
@@ -30,9 +36,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   separate window.
 - The popup grows with its page up to 660 px (or the screen's height); taller pages scroll
   under a fixed header.
-- Settings are shorter: notification threshold as Off / 80 / 90 / 95 %, one line per provider
-  with Track and Limits switches, and refresh intervals, timeout and command paths under a
-  collapsed *Advanced* section.
+- Settings are shorter: one line per provider with Track and Limits switches, and refresh
+  intervals, timeout and command paths under a collapsed *Advanced* section.
 - Antigravity: while Antigravity runs, limits come from its local language server — the same
   groups as its "View Usage" panel (Gemini, Claude and GPT: 5 hours and weekly; Gemini 4 Argon:
   weekly). Each model keeps its own row; the selected (or tightest) model shows its group's
