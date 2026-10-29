@@ -173,6 +173,7 @@ ColumnLayout {
             }
             Accessible.role: Accessible.Button
             Accessible.name: testText.text
+            Accessible.onPressAction: if (enabled) backend.testNotification()
         }
     }
 
@@ -197,11 +198,13 @@ ColumnLayout {
                 Rectangle { implicitWidth: 4; implicitHeight: 20; radius: 2; color: prov.modelData.color }
                 Text { Layout.fillWidth: true; text: prov.modelData.name; color: win.c.text; font.pointSize: 10 }
                 Toggle {
+                    name: prov.modelData.name + ": " + (win.t.track || "")
                     tone: prov.modelData.color
                     checked: prov.tracked
                     onToggled: v => win.set("enabled_" + prov.modelData.id, v)
                 }
                 Toggle {
+                    name: prov.modelData.name + ": " + (win.t.limits || "")
                     tone: prov.modelData.color
                     enabled: prov.tracked && prov.modelData.quotaNote === ""
                     opacity: enabled ? 1 : 0.45
@@ -320,6 +323,8 @@ ColumnLayout {
 
     component Toggle: Rectangle {
         id: sw
+        // For screen readers; inside a Row2 (slot -> row) its label.
+        property string name: parent && parent.parent && parent.parent.label !== undefined ? parent.parent.label : ""
         property bool checked
         property color tone: win.c.accent
         signal toggled(bool value)
@@ -343,7 +348,10 @@ ColumnLayout {
             onClicked: sw.toggled(!sw.checked)
         }
         Accessible.role: Accessible.CheckBox
+        Accessible.name: name
         Accessible.checked: checked
+        Accessible.onToggleAction: if (enabled) toggled(!checked)
+        Accessible.onPressAction: if (enabled) toggled(!checked)
     }
 
     component Segmented: Rectangle {
@@ -386,6 +394,10 @@ ColumnLayout {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: seg.picked(opt.modelData[0])
                     }
+                    Accessible.role: Accessible.RadioButton
+                    Accessible.name: opt.modelData[1]
+                    Accessible.checked: opt.current
+                    Accessible.onPressAction: seg.picked(opt.modelData[0])
                 }
             }
         }
@@ -422,6 +434,8 @@ ColumnLayout {
         Accessible.role: Accessible.CheckBox
         Accessible.name: chip.text
         Accessible.checked: checked
+        Accessible.onToggleAction: if (enabled) toggled()
+        Accessible.onPressAction: if (enabled) toggled()
     }
 
     component Stepper: Rectangle {
