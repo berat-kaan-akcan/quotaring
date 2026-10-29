@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Build an AppImage from the Ubuntu 22.04 portable tarball, entirely inside a container:
-# appimagetool is downloaded and run there, never on the host. NOT RUN by the automated
-# session (its permission system refused running downloaded code) — run it yourself.
+# appimagetool is downloaded and run there, never on the host.
 #   ./packaging/linux/build_in_docker.sh && ./packaging/linux/build_appimage_docker.sh
 set -euo pipefail
 cd "$(dirname "$0")/../.."
