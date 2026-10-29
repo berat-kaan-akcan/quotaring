@@ -34,6 +34,11 @@ def isolated_dirs(tmp_path, monkeypatch):
     monkeypatch.delenv("CODEX_HOME", raising=False)
     # A running Antigravity is found by process, not by folder: never ask the real one.
     monkeypatch.setattr("quotaring.providers.antigravity.running_servers", lambda: [])
+    # Prices: the built-in table unless a test loads a list; never the network.
+    monkeypatch.setattr("quotaring.pricing._remote", None)
+    monkeypatch.setattr("quotaring.pricing._fetched_at", None)
+    monkeypatch.setattr("quotaring.pricing.REMOTE_URL", "http://127.0.0.1:9/litellm")
+    monkeypatch.setattr("quotaring.pricing.OPENROUTER_URL", "http://127.0.0.1:9/openrouter")
     return tmp_path
 
 

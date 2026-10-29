@@ -178,6 +178,12 @@ Toggle **Start at login** in Settings.
 - Antigravity limits come from its own language server on 127.0.0.1 (`agy --hub`; port and CSRF
   token from its command line) while it runs: `RetrieveUserQuotaSummary` and, for model names
   only, `GetUserStatus`. Nothing from it is stored except the limits.
+- The only requests to the internet are the API price lists for the Tokens page's cost
+  estimate: at most once a week, plain GETs of LiteLLM's public
+  [`model_prices_and_context_window.json`](https://github.com/BerriAI/litellm) from GitHub and
+  OpenRouter's public [model list](https://openrouter.ai/api/v1/models) (used only for models
+  LiteLLM lacks, such as Gemini 4 Argon). No identifiers are sent. Turn off *Update API prices*
+  in Settings to use the built-in table only.
 - The CLIs' stderr is discarded. Every query has a timeout and at most 3 attempts with backoff;
   rate limiting (HTTP 429) backs the quota check off to at least 15 minutes.
 - Logs contain paths and error types only. `--debug` adds tracebacks.

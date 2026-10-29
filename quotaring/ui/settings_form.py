@@ -9,7 +9,7 @@ from ..viewmodel import COLORS
 NAMES = {"claude": "Claude Code", "codex": "Codex", "antigravity": "Antigravity"}
 NO_QUOTA: dict[str, str] = {}  # providers without any quota source: their toggle is disabled
 SCALARS = ("local_refresh_seconds", "quota_refresh_seconds", "timeout_seconds", "theme", "language", "accent",
-           "show_remaining", "start_at_login", "notify_threshold", "claude_command", "codex_command")
+           "show_remaining", "start_at_login", "notify_threshold", "update_prices", "claude_command", "codex_command")
 
 
 def form(s: Settings, autostart_supported: bool) -> dict:
@@ -24,7 +24,9 @@ def form(s: Settings, autostart_supported: bool) -> dict:
         "seconds": "seconds", "theme": "Theme", "system": "Follow system", "light": "Light", "dark": "Dark",
         "language": "Language", "accent": "Accent colour", "slate": "Slate", "ink": "Ink", "amber": "Amber",
         "remaining": "Show limits as the percent left (off: used)", "autostart": "Start at login",
-        "autostartHint": "Start QuotaRing when you log in", "notify": "Notify at quota",
+        "autostartHint": "Start QuotaRing when you log in", "prices": "Update API prices",
+        "pricesHint": "Weekly, from the LiteLLM and OpenRouter price lists; for the cost estimate on the Tokens page",
+        "notify": "Notify at quota",
         "notifyHint": "Notify when a limit's use reaches", "off": "Off", "track": "Track this provider",
         "checkQuota": "Check the provider's account limits", "claudeCommand": "claude command",
         "codexCommand": "codex command", "close": "Close", "instant": "Changes apply right away",

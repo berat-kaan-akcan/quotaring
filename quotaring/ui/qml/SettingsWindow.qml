@@ -112,6 +112,11 @@ Window {
                         enabled: !!win.f.autostartSupported
                         Toggle { checked: !!win.draft.start_at_login; onToggled: v => win.set("start_at_login", v) }
                     }
+                    Row2 {
+                        label: win.t.prices
+                        hint: win.t.pricesHint
+                        Toggle { checked: !!win.draft.update_prices; onToggled: v => win.set("update_prices", v) }
+                    }
                 }
 
                 Section {

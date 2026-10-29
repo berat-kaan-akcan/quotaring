@@ -12,7 +12,7 @@ from PySide6.QtCore import QLockFile, QObject, QPointF, QRectF, QRunnable, Qt, Q
 from PySide6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-from . import __version__, alerts, autostart, paths, settings as settings_mod, viewmodel
+from . import __version__, alerts, autostart, paths, pricing, settings as settings_mod, viewmodel
 from .engine import Engine
 from .providers import ALL
 from .providers.base import shutdown_children
@@ -155,8 +155,12 @@ class Controller(QObject):
         self.tick = QTimer(self)  # keeps countdowns and "updated … ago" current
         self.tick.timeout.connect(self.update_view)
         self.tick.start(30_000)
+        self.prices_timer = QTimer(self)  # the list itself is fetched at most weekly
+        self.prices_timer.timeout.connect(self.refresh_prices)
+        self.prices_timer.start(6 * 3600 * 1000)
         self.apply_intervals()
         QTimer.singleShot(0, lambda: self.refresh(force=True))
+        QTimer.singleShot(10_000, self.refresh_prices)
 
     def _build_menu(self) -> QMenu:
         menu = QMenu()
@@ -186,7 +190,15 @@ class Controller(QObject):
                 self.pool.start(Job(self.engine.run_quota, p.id, "quota", self.signals))
         self._update_status()
 
+    def refresh_prices(self):
+        if self.settings.update_prices:
+            self.pool.start(Job(lambda _pid: pricing.refresh(), "prices", "prices", self.signals))
+
     def _on_done(self, pid: str, kind: str, result):
+        if kind == "prices":
+            if result:
+                self.update_view()
+            return
         self.engine.end(pid, kind)
         if result is not None:
             snap = (self.engine.apply_local if kind == "local" else self.engine.apply_quota)(pid, result)
@@ -240,8 +252,10 @@ class Controller(QObject):
 
     def apply_settings(self, values: dict):
         """Called for every change in the settings window (it has no Save button)."""
-        before = (self._data_settings(), self.settings.language)
+        before = (self._data_settings(), self.settings.language, self.settings.update_prices)
         settings_form.apply(self.settings, values)
+        if self.settings.update_prices and not before[2]:
+            self.refresh_prices()
         if self.settings.language != before[1]:
             self.apply_language()
         try:

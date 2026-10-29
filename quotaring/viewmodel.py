@@ -236,7 +236,7 @@ def widget_view(snapshots, now: float) -> dict:
                  "apiCost": tr("≈ {cost} at API prices, cache included"),
                  "unpriced": tr("Models without a known price are not counted."),
                  "priceNote": tr("API list prices ({date}); subscriptions are not billed per token.").format(
-                     date=pricing.AS_OF),
+                     date=pricing.as_of()),
                  "input": tr("Input"), "output": tr("Output"), "cacheRead": tr("Cache read"),
                  "cacheWrite": tr("Cache write")},
         "version": __version__,

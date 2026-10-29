@@ -23,6 +23,7 @@ class Settings:
     show_remaining: bool = True  # limits as what is left (else as what is used)
     pinned: dict = field(default_factory=dict)  # provider id -> limit label shown on its ring
     notify_threshold: int = 90  # percent; 0 disables quota notifications
+    update_prices: bool = True  # download the API price list weekly (Tokens page estimate)
     providers_enabled: dict = field(default_factory=lambda: {p: True for p in PROVIDER_IDS})
     quota_enabled: dict = field(default_factory=lambda: {p: True for p in PROVIDER_IDS})
     claude_command: str = "claude"

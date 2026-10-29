@@ -10,6 +10,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Tokens page (click the token strip): period and provider chips, total with what it would cost
   at API list prices (cache included), input / output / cache split, daily columns labelled with
   their values, and every model with its provider, cost and token split.
+- API prices update themselves: LiteLLM's public price list is downloaded at most once a week
+  and cached, OpenRouter's model list fills in models it lacks (Gemini 4 Argon), and a built-in
+  table covers the rest. *Update API prices* in Settings turns
+  it off.
 
 ### Changed
 - Antigravity: while Antigravity runs, limits come from its local language server — the same
