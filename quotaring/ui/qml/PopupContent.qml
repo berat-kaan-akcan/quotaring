@@ -228,17 +228,14 @@ Item {
                                             Behavior on height { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
                                         }
                                         MouseArea { id: hover; anchors.fill: parent; hoverEnabled: true }
-                                        ToolTip.visible: hover.containsMouse
-                                        ToolTip.text: day.modelData.label + ": " + day.modelData.text
+                                        Tip { visible: hover.containsMouse; delay: 0; text: day.modelData.label + ": " + day.modelData.text }
                                     }
                                 }
                             }
                         }
                         }
                         HoverHandler { id: stripHover; cursorShape: Qt.PointingHandCursor }
-                        ToolTip.visible: stripHover.hovered && !!popup.v
-                        ToolTip.delay: 800
-                        ToolTip.text: popup.v ? popup.v.text.localOnly : ""
+                        Tip { visible: stripHover.hovered && !!popup.v; delay: 800; text: popup.v ? popup.v.text.localOnly : "" }
                     }
 
                     TokenDetails {
@@ -425,8 +422,10 @@ Item {
 
                 readonly property var tipWindow: !card.multi ? card.litWindow
                     : ring.hoverRing === 1 && card.ringInner ? card.ringInner : card.ringPair[0]
-                ToolTip.visible: !!tipWindow && ring.hoverRing >= 0
-                ToolTip.text: tipWindow ? tipWindow.label + ": " + card.valueText(tipWindow) + " · " + tipWindow.reset : ""
+                Tip {
+                    visible: !!ring.tipWindow && ring.hoverRing >= 0
+                    text: ring.tipWindow ? ring.tipWindow.label + ": " + card.valueText(ring.tipWindow) + " · " + ring.tipWindow.reset : ""
+                }
             }
 
             // The model on the rings, small, under them.

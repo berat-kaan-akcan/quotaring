@@ -11,10 +11,8 @@ AbstractButton {
     implicitWidth: 32
     implicitHeight: 32
     hoverEnabled: true
-    ToolTip.text: tip
-    ToolTip.visible: hovered
-    ToolTip.delay: 600
     Accessible.name: tip
+    Tip { visible: btn.hovered; delay: 600; text: btn.tip; c: btn.c }
     background: Rectangle {
         radius: 8
         color: btn.hovered ? btn.c.track : "transparent"

@@ -17,6 +17,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   table covers the rest. *Update API prices* in Settings turns
   it off.
 
+### Fixed
+- Hovering a ring showed an empty box instead of its tooltip. Tooltips now each have their own
+  instance and use the popup's colours.
+
 ### Changed
 - The popup header carries the QuotaRing mark next to the name, in the accent colour.
 - Settings are a page of the popup (gear icon, or *Settings…* in the tray menu) instead of a
