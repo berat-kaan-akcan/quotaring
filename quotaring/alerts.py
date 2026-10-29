@@ -56,7 +56,8 @@ def pending(snapshots, threshold: int, now: float) -> list[dict]:
                 body = tr("{pct} used · {resets}").format(pct=fmt.pct(w.used_percent), resets=resets)
             else:
                 continue
-            out.append({"key": key, "expires": w.resets_at or now + 7 * 86400, "title": title, "body": body})
+            out.append({"key": key, "expires": w.resets_at or now + 7 * 86400, "title": title, "body": body,
+                        "used": 100.0 if w.active_limit(now) else w.used_percent, "limited": w.active_limit(now)})
     return out
 
 

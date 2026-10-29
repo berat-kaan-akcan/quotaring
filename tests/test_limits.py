@@ -139,6 +139,7 @@ def test_alerts_once_per_window_and_shared(tmp_path):
     found = alerts.pending([snap], 90, NOW)
     assert [a["title"] for a in found] == ["Claude Code · 5-hour limit reached", "Claude Code · Weekly limit: 8% left"]
     assert found[0]["body"] == "Resets in 10m." and found[1]["body"].startswith("92% used · resets ")
+    assert (found[0]["used"], found[0]["limited"], found[1]["used"], found[1]["limited"]) == (100.0, True, 92.0, False)
     i18n.set_language("tr")
     tr_found = alerts.pending([snap], 90, NOW)
     assert [a["title"] for a in tr_found] == ["Claude Code · 5 saatlik limit doldu", "Claude Code · Haftalık limit: %8 kaldı"]

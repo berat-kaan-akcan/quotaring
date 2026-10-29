@@ -134,6 +134,7 @@ class Controller(QObject):
             self.tray.setContextMenu(self._menu)
             self.tray.setToolTip(tr("QuotaRing"))
             self.tray.activated.connect(self._tray_activated)
+            self.tray.messageClicked.connect(lambda: self.popup.is_visible() or self.popup.show())
             self.tray.show()
         # Without a tray (GNOME without the AppIndicator extension) the popup is a normal window.
         self.popup = Popup(self.backend, docked=self.tray is not None)
@@ -229,7 +230,12 @@ class Controller(QObject):
         if self.tray is None:
             return
         for a in self.seen_alerts.take_new(alerts.pending([snap], self.settings.notify_threshold, time.time())):
-            self.tray.showMessage(a["title"], a["body"], QSystemTrayIcon.Warning, 8000)
+            # The limit itself as the icon: a ring with what is left, amber or red like the tray.
+            left = max(0.0, 100 - a["used"])
+            ring = {"available": True, "used": round(a["used"]), "remaining": round(left), "limited": a["limited"],
+                    "level": "bad" if a["limited"] or left <= 10 else "warn" if left <= 30 else "ok"}
+            icon = make_ring_icon(ring, self.settings.show_remaining, self._panel_palette())
+            self.tray.showMessage(a["title"], a["body"], icon, 10000)
 
     # -- popup / settings -----------------------------------------------
     def apply_theme(self):
