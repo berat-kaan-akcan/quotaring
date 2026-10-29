@@ -16,6 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   it off.
 
 ### Changed
+- The popup header carries the QuotaRing mark next to the name, in the accent colour.
 - Settings are a page of the popup (gear icon, or *Settings…* in the tray menu) instead of a
   separate window.
 - The popup grows with its page up to 660 px (or the screen's height); taller pages scroll

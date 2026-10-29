@@ -71,6 +71,11 @@ Item {
                     tip: popup.v ? popup.v.text.back : "Back"
                     onClicked: popup.page = "limits"
                 }
+                Logo {
+                    visible: popup.page === "limits"
+                    Layout.rightMargin: 6
+                    color: popup.c.accent
+                }
                 Text {
                     Layout.fillWidth: true
                     text: !popup.v ? "QuotaRing" : popup.page === "tokens" ? popup.v.text.tokenUsage
