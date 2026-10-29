@@ -283,6 +283,9 @@ Item {
         // A model row (Antigravity) carries its 5-hour and weekly limits: both go on the rings.
         readonly property var ringPair: ringWindow ? (ringWindow.pair || [ringWindow]) : []
         readonly property var ringInner: ringPair.length > 1 ? ringPair[1] : null
+        // The ring under the mouse on a model card: its limit takes the middle, like on the others.
+        readonly property var hoverPair: multi && ring.hoverRing >= 0 && ring.hoverRing < ringPair.length
+            ? ringPair[ring.hoverRing] : null
 
         function shown(x) { return popup.remaining ? x.remaining : x.used; }
         function toneOf(x) {
@@ -320,7 +323,7 @@ Item {
                 outerTag: card.multi ? card.ringPair[0].tag : card.first ? card.first.tag : ""
                 innerTag: card.multi ? (card.ringInner ? card.ringInner.tag : "") : card.second ? card.second.tag : ""
                 tagBackground: popup.c.card
-                highlight: card.multi ? -1 : card.lit
+                highlight: card.multi ? (card.hoverPair ? ring.hoverRing : -1) : card.lit
                 outerColor: card.multi ? card.toneOf(card.ringPair[0])
                     : card.first && card.first === card.tight ? card.tone : card.modelData.color
                 innerColor: card.multi && card.ringInner && T.levelOf(card.ringInner.remaining, card.ringInner.limited) !== "ok"
@@ -332,9 +335,10 @@ Item {
                 textColor: !showing || T.levelOf(showing.remaining, showing.limited) === "ok" ? popup.c.text : card.toneOf(showing)
                 subColor: popup.c.muted
                 // The middle follows the highlighted ring, else shows the tightest limit.
-                readonly property var showing: card.multi ? card.ringWindow : (card.litWindow || card.tight)
+                readonly property var showing: card.multi ? (card.hoverPair || card.ringWindow) : (card.litWindow || card.tight)
                 centerText: !showing ? "—" : showing.limited ? "0" : T.pct(popup.v, card.shown(showing))
-                label: showing ? showing.label : ""
+                // Which limit the number is ("5 hours", "Weekly"); a model card names the model below.
+                label: !showing ? "" : card.hoverPair ? card.hoverPair.short : card.multi ? showing.short : showing.label
                 subText: !showing ? "" : showing.limited ? popup.v.text.limitReached
                     : popup.remaining ? popup.v.text.left : popup.v.text.used
                 opacity: showing && showing.dim ? 0.5 : 1
@@ -343,6 +347,19 @@ Item {
                     : ring.hoverRing === 1 && card.ringInner ? card.ringInner : card.ringPair[0]
                 ToolTip.visible: !!tipWindow && ring.hoverRing >= 0
                 ToolTip.text: tipWindow ? tipWindow.label + ": " + card.valueText(tipWindow) + " · " + tipWindow.reset : ""
+            }
+
+            // The model on the rings, small, under them.
+            Text {
+                visible: card.multi && !!card.ringWindow && !!card.ringWindow.pair
+                Layout.alignment: Qt.AlignHCenter
+                Layout.maximumWidth: col.width
+                Layout.topMargin: -4
+                text: visible ? card.ringWindow.label : ""
+                textFormat: Text.PlainText
+                elide: Text.ElideRight
+                color: popup.c.muted
+                font.pointSize: 8.5
             }
 
             RowLayout {

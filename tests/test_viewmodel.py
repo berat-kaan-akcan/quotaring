@@ -131,5 +131,6 @@ def test_antigravity_models_one_row_each_with_ring_pair():
         ("Gemini 4 Argon", "GA", 78), ("Gemini 3.8 Flash", "GF", 90), ("Claude Opus 5.5", "CO", 88),
         ("Claude Sonnet 5.5", "CS", 88)]
     assert [w["tag"] for w in rows[1]["pair"]] == ["5h", "W"] and len(rows[0]["pair"]) == 1
+    assert [w["short"] for w in rows[1]["pair"]] == ["5 hours", "Weekly"]  # the ring's name on hover
     assert rows[2]["reset"].startswith("W · ")
     json.dumps(item)

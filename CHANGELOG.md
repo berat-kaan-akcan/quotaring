@@ -28,8 +28,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   weekly). Each model keeps its own row; the selected (or tightest) model shows its group's
   5-hour limit on the outer ring and the weekly one on the inner ring. The IDE's account-status
   cache stays as the fallback. Per-model rows no longer carry initials.
-- Long model names in the middle of a ring shrink and elide instead of running over it; GPT
-  model ids read as "GPT-5.5" like the other models.
+- Antigravity's rings: hovering one shows its limit in the middle and fades the other, as on
+  the other cards; the middle names the limit ("5 hours", "Weekly") and the model sits under
+  the rings. GPT model ids read as "GPT-5.5" like the other models.
 - Model names: Antigravity's variant ids ("gemini-3.8-flash-n", "claude-opus-5-5-medium") are
   shown as one model ("Gemini 3.8 Flash", "Opus 5.5").
 

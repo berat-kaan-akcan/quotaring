@@ -101,6 +101,7 @@ def limits_view(snaps, now: float) -> list[dict]:
                 base = w.label.split(" · ")[0]
                 item["windows"].append({
                     "label": label, "tag": tr(RING_TAG[base]) if base in RING_TAG else _initials(label),
+                    "short": tr(SHORT_WINDOW.get(base, base)),  # "5 hours", "Weekly": what a ring is
                     "used": round(used), "remaining": round(max(0.0, 100 - used)),
                     "limited": limited, "dim": not limited and (passed or q.state == State.STALE),
                     "reset": fmt.resets(w.resets_at, now)})
