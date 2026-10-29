@@ -1,4 +1,4 @@
-"""Offscreen smoke tests: every state renders without errors and with honest labels."""
+"""Offscreen smoke tests for the QML popup: every state renders without QML errors."""
 
 import os
 import time
@@ -6,12 +6,17 @@ import time
 import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ.setdefault("QT_QUICK_BACKEND", "software")
 QtWidgets = pytest.importorskip("PySide6.QtWidgets")
+pytest.importorskip("PySide6.QtQuick")
 
-from aiusage.aggregate import aggregate  # noqa: E402
-from aiusage.model import LocalUsage, ProviderSnapshot, Quota, QuotaWindow, State, Tokens, UsageEvent  # noqa: E402
-from aiusage.ui import theme  # noqa: E402
-from aiusage.ui.window import MainWindow  # noqa: E402
+from PySide6.QtCore import QtMsgType, qInstallMessageHandler  # noqa: E402
+
+from quotaring import viewmodel  # noqa: E402
+from quotaring.aggregate import aggregate  # noqa: E402
+from quotaring.model import LocalUsage, ProviderSnapshot, Quota, QuotaWindow, State, Tokens, UsageEvent  # noqa: E402
+from quotaring.ui import theme  # noqa: E402
+from quotaring.ui.popup import Backend, Popup  # noqa: E402
 
 NOW = time.time()
 
@@ -19,6 +24,19 @@ NOW = time.time()
 @pytest.fixture(scope="module")
 def app():
     return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+
+@pytest.fixture
+def qml_errors():
+    """QML warnings (binding errors, type errors) collected while the test runs."""
+    errors = []
+
+    def handler(kind, _ctx, msg):
+        if kind != QtMsgType.QtDebugMsg and ("qml" in msg.lower() or "file:" in msg):
+            errors.append(msg)
+    previous = qInstallMessageHandler(handler)
+    yield errors
+    qInstallMessageHandler(previous)
 
 
 def snap(local_state, quota_state, windows=True):
@@ -34,48 +52,153 @@ def snap(local_state, quota_state, windows=True):
     return ProviderSnapshot("claude", "Claude Code", loc, q)
 
 
-@pytest.mark.parametrize("expanded", [False, True])
+def settle(app, n=20):
+    for _ in range(n):
+        app.processEvents()
+
+
+def popup_for(settings, palette=theme.DARK, docked=False):
+    backend = Backend(settings, palette)
+    return backend, Popup(backend, docked=docked)
+
+
+@pytest.mark.parametrize("remaining", [True, False])
 @pytest.mark.parametrize("palette", [theme.LIGHT, theme.DARK])
-def test_all_states_render(app, settings, expanded, palette):
-    settings.expanded = expanded
-    w = MainWindow([("claude", "Claude Code")], palette, settings)
-    card = w.cards["claude"]
+def test_all_states_render(app, settings, qml_errors, remaining, palette):
+    settings.show_remaining = remaining
+    backend, popup = popup_for(settings, palette)
+    popup.show()
     for ls in State:
         for qs in State:
-            card.update_snapshot(snap(ls, qs, windows=qs in (State.OK, State.STALE)))
-    w.resize(360, 600)
-    assert not w.grab().isNull()
+            backend.set_view(viewmodel.widget_view([snap(ls, qs, windows=qs in (State.OK, State.STALE))], NOW))
+            settle(app, 2)
+    assert not popup.window.grabWindow().isNull()
+    assert qml_errors == []
 
 
-def test_stale_and_unavailable_texts(app, settings):
-    w = MainWindow([("claude", "Claude Code")], theme.LIGHT, settings)
-    card = w.cards["claude"]
-    card.update_snapshot(snap(State.OK, State.STALE))
-    assert card.quota_msg.text().startswith("Stale (last updated")
-    card.update_snapshot(snap(State.OK, State.UNAVAILABLE, windows=False))
-    assert "Unavailable" in card.quota_msg.text()
-    assert card.pill.text() == "Local only"
-    card.update_snapshot(snap(State.NOT_INSTALLED, State.NOT_INSTALLED, windows=False))
-    assert card.pill.text() == "Not installed"
+def test_no_data_yet_renders(app, settings, qml_errors):
+    _backend, popup = popup_for(settings)
+    popup.show()
+    settle(app)
+    assert qml_errors == []
 
 
-def test_window_flags_and_expand_toggle(app, settings):
-    from PySide6.QtCore import Qt
-    w = MainWindow([("claude", "Claude Code")], theme.DARK, settings)
-    assert w.windowFlags() & Qt.WindowStaysOnTopHint
-    settings.always_on_top = False
-    w.apply_flags()
-    assert not (w.windowFlags() & Qt.WindowStaysOnTopHint)
-    before = settings.expanded
-    w.btn_expand.click()
-    assert settings.expanded != before
+def test_prefs_round_trip(app, settings):
+    backend, _popup = popup_for(settings)
+    saved = []
+    backend.prefsSaved.connect(lambda: saved.append(True))
+    backend.setPref("showRemaining", False)
+    backend.setPref("window", {"x": 1})  # unknown keys are ignored
+    assert settings.show_remaining is False
+    assert backend.prefs == {"showRemaining": False, "pinned": {}}
+    assert len(saved) == 1
 
 
-def test_daily_chart_visible_only_when_expanded(app, settings):
-    settings.expanded = True
-    w = MainWindow([("claude", "Claude Code")], theme.DARK, settings)
-    card = w.cards["claude"]
-    card.update_snapshot(snap(State.OK, State.OK))
-    assert not card.chart.isHidden() and len(card.chart.days) == 14
-    w.btn_expand.click()
-    assert card.chart.isHidden()
+def test_toggle_and_reopen_guard(app, settings):
+    _backend, popup = popup_for(settings, docked=True)
+    popup.toggle()
+    assert popup.is_visible()
+    popup.toggle()
+    assert not popup.is_visible()
+    popup.toggle()  # the click that took focus away from the popup: must not reopen it
+    assert not popup.is_visible()
+    popup._hidden_at -= 1
+    popup.toggle()
+    assert popup.is_visible()
+
+
+def test_focus_loss_right_after_show_keeps_popup(app, settings):
+    _backend, popup = popup_for(settings, docked=True)
+    popup.show()
+    popup.focus_lost()
+    assert popup.is_visible()
+    popup._shown_at -= 1
+    popup.focus_lost()
+    assert not popup.is_visible()
+
+
+def test_ring_icon_draws(app):
+    from quotaring.app import make_ring_icon
+    for ring in (viewmodel.ring([snap(State.OK, State.OK)], NOW),
+                 {"available": True, "used": 100, "remaining": 0, "level": "bad", "limited": True}):
+        icon = make_ring_icon(ring, True, theme.DARK)
+        assert not icon.pixmap(22, 22).isNull()
+
+
+def test_popup_centres_on_click_inside_screen():
+    from quotaring.ui.popup import MARGIN, centered_left
+    assert centered_left(800, 400, 0, 1536) == 600
+    assert centered_left(1500, 400, 0, 1536) == 1536 - 400 - MARGIN  # near the right edge
+    assert centered_left(10, 400, 0, 1536) == MARGIN
+    assert centered_left(2000, 400, 1536, 1920) == 1800  # second screen
+
+
+def test_tray_tooltip_shows_what_is_left():
+    limits = viewmodel.limits_view([snap(State.OK, State.OK)], NOW)
+    tip = viewmodel.limits_tooltip(limits)
+    assert tip.startswith("Claude: 5 hours 58% left")
+    assert "used" in viewmodel.limits_tooltip(limits, remaining=False)
+    none = viewmodel.limits_view([snap(State.OK, State.NOT_AUTHENTICATED, windows=False)], NOW)
+    assert viewmodel.limits_tooltip(none) == "Claude: Not signed in · run claude login"
+
+
+def test_settings_window_renders_and_saves(app, settings, qml_errors):
+    from quotaring.ui import settings_form
+    backend, popup = popup_for(settings)
+    backend.set_settings_form(settings_form.form(settings, True))
+    saved = []
+    backend.settingsSaved.connect(lambda values: saved.append(values))
+    popup.open_settings()
+    settle(app)
+    win = popup.settings_window
+    assert win.isVisible() and not win.grabWindow().isNull()
+    draft = win.property("draft").toVariant()
+    assert draft["theme"] == settings.theme  # the draft starts from the current settings
+    backend.saveSettings(dict(draft, theme="dark", enabled_codex=False))
+    assert saved and saved[0]["theme"] == "dark" and saved[0]["enabled_codex"] is False
+    assert qml_errors == []
+
+
+def test_settings_form_round_trip(settings):
+    from quotaring.ui import settings_form
+    f = settings_form.form(settings, autostart_supported=False)
+    assert f["values"]["quota_antigravity"] is True and f["autostartSupported"] is False
+    assert f["text"]["locale"] == "en"  # section titles upper-case as English even on a Turkish system
+    values = dict(f["values"], local_refresh_seconds="5", theme="dark", quota_codex=False,
+                  quota_antigravity=False, claude_command="  ", unknown=1)
+    settings_form.apply(settings, values)
+    assert settings.local_refresh_seconds == 15  # clamped
+    assert settings.theme == "dark" and settings.quota_enabled["codex"] is False
+    assert settings.quota_enabled["antigravity"] is False
+    assert settings.claude_command == "claude"
+
+
+def test_pin_keeps_a_limit_on_the_ring(app, settings, qml_errors):
+    backend, popup = popup_for(settings)
+    saved = []
+    backend.prefsSaved.connect(lambda: saved.append(True))
+    backend.pin("antigravity", "Claude Sonnet 5.5")
+    assert settings.pinned == {"antigravity": "Claude Sonnet 5.5"}
+    assert backend.prefs["pinned"] == {"antigravity": "Claude Sonnet 5.5"}
+    backend.pin("antigravity", "Claude Sonnet 5.5")  # same row again: released
+    assert settings.pinned == {} and len(saved) == 2
+    # A card with more limits than rings renders with and without a pin.
+    windows = [QuotaWindow(f"a:{i}", name, used, NOW + 3600)
+               for i, (name, used) in enumerate((("Gemini 3.8 Flash", 20.0), ("Claude Opus 5.5", 85.0),
+                                                 ("Claude Sonnet 5.5", 40.0), ("GPT-OSS 120B", 0.0)))]
+    ag = ProviderSnapshot("antigravity", "Antigravity", LocalUsage(State.NOT_INSTALLED),
+                          Quota(State.OK, windows, plan="Google AI Pro", updated_at=NOW))
+    popup.show()
+    backend.set_view(viewmodel.widget_view([ag], NOW))
+    settle(app)
+    backend.pin("antigravity", "GPT-OSS 120B")
+    settle(app)
+    assert qml_errors == []
+
+
+def test_pinned_setting_is_cleaned(tmp_path):
+    import json
+    from quotaring import settings as settings_mod
+    p = tmp_path / "s.json"
+    p.write_text(json.dumps({"pinned": {"antigravity": "GPT-OSS 120B", "bard": "x", "codex": 3}}))
+    assert settings_mod.load(p).pinned == {"antigravity": "GPT-OSS 120B"}

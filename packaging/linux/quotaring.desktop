@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=QuotaRing
+GenericName=AI usage monitor
+Comment=Claude Code, Codex and Antigravity usage in one widget
+Exec=quotaring
+Icon=quotaring
+Terminal=false
+Categories=Utility;Monitor;
+StartupWMClass=quotaring

@@ -4,6 +4,6 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 VER=$(sed -n 's/^pkgver=//p' PKGBUILD)
-git -C ../.. archive --format=tar.gz --prefix="ai-usage-widget-$VER/" -o "$PWD/ai-usage-widget-$VER.tar.gz" HEAD
+git -C ../.. archive --format=tar.gz --prefix="quotaring-$VER/" -o "$PWD/quotaring-$VER.tar.gz" HEAD
 makepkg -f "$@"
-mkdir -p ../out && mv -f ai-usage-widget-*.pkg.tar.* ../out/
+mkdir -p ../out && mv -f quotaring-*.pkg.tar.* ../out/

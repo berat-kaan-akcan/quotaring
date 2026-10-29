@@ -7,9 +7,11 @@ if (-not (Test-Path .venv)) { python -m venv .venv }
 .\.venv\Scripts\python -m pip install --upgrade pip
 .\.venv\Scripts\python -m pip install -r requirements-dev.txt
 .\.venv\Scripts\python -m pytest -q
-.\.venv\Scripts\python -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging\aiusage.spec
+if ($LASTEXITCODE -ne 0) { throw "tests failed" }
+.\.venv\Scripts\python -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging\quotaring.spec
+$version = .\.venv\Scripts\python -c "import quotaring;print(quotaring.__version__)"
 New-Item -ItemType Directory -Force packaging\out | Out-Null
-Compress-Archive -Force dist\ai-usage-widget packaging\out\ai-usage-widget-0.1.0-windows-x64.zip
+Compress-Archive -Force dist\quotaring packaging\out\quotaring-$version-windows-x64.zip
 $iscc = Get-Command iscc.exe -ErrorAction SilentlyContinue
 if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
-if (Test-Path $iscc) { & $iscc packaging\windows\installer.iss } else { Write-Warning "Inno Setup not found: installer not built" }
+if (Test-Path $iscc) { & $iscc /DAppVersion=$version packaging\windows\installer.iss } else { Write-Warning "Inno Setup not found: installer not built" }

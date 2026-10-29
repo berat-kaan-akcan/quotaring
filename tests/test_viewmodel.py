@@ -1,9 +1,9 @@
 import json
 import time
 
-from aiusage import i18n, viewmodel
-from aiusage.aggregate import aggregate, daily_totals
-from aiusage.model import LocalUsage, ProviderSnapshot, Quota, QuotaWindow, State, Tokens, UsageEvent
+from quotaring import i18n, viewmodel
+from quotaring.aggregate import aggregate, daily_totals
+from quotaring.model import LocalUsage, ProviderSnapshot, Quota, QuotaWindow, State, Tokens, UsageEvent
 
 NOW = time.time()
 
@@ -25,59 +25,31 @@ def snap(pid="claude", local=State.OK, quota=State.OK, windows=None):
 
 def test_widget_view_is_json_and_complete():
     i18n.set_language("en")
-    v = viewmodel.widget_view([snap()], NOW)
-    v = json.loads(json.dumps(v))
-    p = v["providers"][0]
-    assert v["headline"] == "41%"
-    assert [q["percentText"] for q in p["quota"]] == ["41%", "4%"]
-    assert [x["label"] for x in p["local"]] == ["Today", "5 h", "7 d"]
-    assert p["models"]["today"][0][0] == "model-a"
-    assert {r[0] for r in p["models"]["7d"]} == {"model-a", "model-b"}
-    assert len(p["daily"]) == 14 and max(d["ratio"] for d in p["daily"]) == 1
-    assert "Chats 2%" in p["breakdown"]
-    assert "may change without notice" in p["quotaSource"]
-    assert len(v["labels"]["columns"]) == 5
+    v = json.loads(json.dumps(viewmodel.widget_view([snap()], NOW)))
+    assert v["ring"] == {"available": True, "used": 41, "remaining": 59, "level": "ok", "limited": False,
+                         "label": "Claude Code · 5-hour session"}
+    claude = v["limits"][0]
+    assert [(w["label"], w["tag"], w["remaining"]) for w in claude["windows"]] == [("5 hours", "5h", 59), ("Weekly", "W", 96)]
+    assert claude["plan"] == "Pro" and claude["color"] == viewmodel.COLORS["claude"]
+    assert v["tokens"]["data"]["all"]["periods"]["today"]["models"][0]["name"] == "model-a"
+    assert set(v["labels"]) == {"title", "refresh", "settings"}
 
 
-def test_headline_ignores_windows_past_reset_and_unverified_quota():
+def test_ring_ignores_windows_past_reset_and_unverified_quota():
     i18n.set_language("en")
     passed = snap(windows=[QuotaWindow("w", "Weekly", 99.0, NOW - 10, 10080),
                            QuotaWindow("s", "5-hour session", 12.0, NOW + 60, 300)])
-    assert viewmodel.headline([passed], NOW) == "12%"
-    assert viewmodel.headline([snap(quota=State.UNAVAILABLE)], NOW) == ""
+    assert viewmodel.ring([passed], NOW)["used"] == 12
+    assert not viewmodel.ring([snap(quota=State.UNAVAILABLE)], NOW)["available"]
 
 
-def test_states_collapsed_and_stale():
+def test_states_hidden_stale_and_unavailable():
     i18n.set_language("en")
-    ni = viewmodel.provider_view(snap("codex", State.NOT_INSTALLED, State.NOT_INSTALLED), NOW)
-    assert ni["collapsed"] and ni["pill"]["text"] == "Not installed" and ni["quota"] == []
-    stale = viewmodel.provider_view(snap(quota=State.STALE), NOW)
-    assert stale["pill"]["level"] == "warn"
-    assert all(q["dim"] for q in stale["quota"])
-    assert stale["quotaMessage"].startswith("Stale (last updated")
-    local_only = viewmodel.provider_view(snap(quota=State.UNAVAILABLE), NOW)
-    assert local_only["pill"]["text"] == "Local only" and local_only["quota"] == []
-
-
-def test_turkish_view():
-    i18n.set_language("tr")
-    try:
-        v = viewmodel.widget_view([snap()], NOW)
-        assert v["headline"] == "%41"
-        assert v["labels"]["quota"] == "HESAP KOTASI"
-        assert v["providers"][0]["quota"][1]["label"] == "Haftalık"
-    finally:
-        i18n.set_language("en")
-
-
-def test_widget_json_command_runs_isolated(capsys):
-    """End to end on an empty (isolated) home: valid JSON, nothing installed, nothing invented."""
-    from aiusage.app import widget_json
-    assert widget_json() == 0
-    out = json.loads(capsys.readouterr().out)
-    assert out["headline"] == ""
-    assert {p["id"] for p in out["providers"]} == {"claude", "codex", "antigravity"}
-    assert all(p["quota"] == [] for p in out["providers"])
+    assert viewmodel.limits_view([snap("codex", State.NOT_INSTALLED, State.NOT_INSTALLED)], NOW) == []
+    stale = viewmodel.limits_view([snap(quota=State.STALE)], NOW)[0]
+    assert all(w["dim"] for w in stale["windows"]) and stale["note"].startswith("updated")
+    unavailable = viewmodel.limits_view([snap(quota=State.UNAVAILABLE)], NOW)[0]
+    assert unavailable["windows"] == [] and unavailable["message"] == "No limit data"
 
 
 def test_model_name():

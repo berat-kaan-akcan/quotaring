@@ -4,12 +4,12 @@ import time
 
 import pytest
 
-from aiusage import i18n, viewmodel
-from aiusage.engine import NEAR_LIMIT_INTERVAL, Engine
-from aiusage.model import LocalUsage, ProviderSnapshot, Quota, QuotaWindow, State
-from aiusage.providers.base import Provider, QuotaError
-from aiusage.providers.claude import ClaudeProvider, apply_limit_hit, parse_limit_hit
-from aiusage.ui import format as fmt
+from quotaring import i18n, viewmodel
+from quotaring.engine import NEAR_LIMIT_INTERVAL, Engine
+from quotaring.model import LocalUsage, ProviderSnapshot, Quota, QuotaWindow, State
+from quotaring.providers.base import Provider, QuotaError
+from quotaring.providers.claude import ClaudeProvider, apply_limit_hit, parse_limit_hit
+from quotaring.ui import format as fmt
 from conftest import iso, write_jsonl
 from test_claude import assistant
 
@@ -111,12 +111,12 @@ def test_views_say_limit_reached():
     snap = ProviderSnapshot("claude", "Claude Code", LocalUsage(State.OK),
                             Quota(State.STALE, [w, QuotaWindow("seven_day", "Weekly", 3.0, NOW + 9e5)],
                                   detail="Usage endpoint returned no data"))
-    v = viewmodel.provider_view(snap, NOW)
-    assert v["quota"][0]["percentText"] == "Limit reached" and v["quota"][0]["limited"]
-    assert not v["quota"][0]["dim"] and v["quota"][1]["dim"]
-    assert viewmodel.headline([snap], NOW) == "Limit reached"
+    windows = viewmodel.limits_view([snap], NOW)[0]["windows"]
+    assert windows[0]["limited"] and windows[0]["remaining"] == 0
+    assert not windows[0]["dim"] and windows[1]["dim"]
+    assert viewmodel.ring([snap], NOW)["limited"]
     assert "Limit reached" in fmt.summary([snap], NOW)
-    assert viewmodel.headline([snap], NOW + 601) == "3%"  # after the reset the hit no longer applies
+    assert viewmodel.ring([snap], NOW + 601)["used"] == 3  # after the reset the hit no longer applies
     i18n.set_language("tr")
     try:
         assert fmt.window_pct(w, NOW) == "Limit doldu"
@@ -131,7 +131,7 @@ def test_window_roundtrip_keeps_flag_and_old_caches_load():
 
 
 def test_alerts_once_per_window_and_shared(tmp_path):
-    from aiusage import alerts
+    from quotaring import alerts
     i18n.set_language("en")
     lim = QuotaWindow("five_hour", "5-hour session", 100.0, NOW + 600, 300, limited=True)
     hi = QuotaWindow("seven_day", "Weekly", 92.0, NOW + 9e5, 10080)

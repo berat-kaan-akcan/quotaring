@@ -1,8 +1,8 @@
 import json
 import time
 
-from aiusage.model import State
-from aiusage.providers.claude import ClaudeProvider, parse_claude_line
+from quotaring.model import State
+from quotaring.providers.claude import ClaudeProvider, parse_claude_line
 from conftest import iso, write_jsonl
 
 NOW = time.time()

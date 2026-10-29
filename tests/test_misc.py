@@ -5,10 +5,10 @@ from datetime import datetime
 
 import pytest
 
-from aiusage import autostart, settings as settings_mod
-from aiusage.aggregate import aggregate, period_starts
-from aiusage.model import ProviderSnapshot, LocalUsage, Quota, QuotaWindow, State, Tokens, UsageEvent
-from aiusage.ui import format as fmt
+from quotaring import autostart, settings as settings_mod
+from quotaring.aggregate import aggregate, period_starts
+from quotaring.model import ProviderSnapshot, LocalUsage, Quota, QuotaWindow, State, Tokens, UsageEvent
+from quotaring.ui import format as fmt
 
 NOW = time.time()
 
@@ -50,11 +50,10 @@ def test_settings_defaults_roundtrip_and_validation(tmp_path):
     settings_mod.save(s, path)
     s2 = settings_mod.load(path)
     assert s2.theme == "dark" and s2.quota_enabled["codex"] is False and s2.quota_enabled["claude"] is True
-    path.write_text(json.dumps({"local_refresh_seconds": 1, "theme": "neon", "opacity": "x",
-                                "always_on_top": "yes", "unknown": 5, "period": "1y"}))
+    path.write_text(json.dumps({"local_refresh_seconds": 1, "theme": "neon", "show_remaining": "x",
+                                "unknown": 5}))
     s3 = settings_mod.load(path)
-    assert s3.local_refresh_seconds == 15 and s3.theme == "system" and s3.opacity == 0.96
-    assert s3.always_on_top is True and s3.period == "today"
+    assert s3.local_refresh_seconds == 15 and s3.theme == "system" and s3.show_remaining is True
     path.write_text("[1,2,3]")
     assert settings_mod.load(path).theme == "system"
     path.write_text("{corrupt")
@@ -64,7 +63,7 @@ def test_settings_defaults_roundtrip_and_validation(tmp_path):
 def test_settings_default_location_is_platform_config_dir(isolated_dirs):
     settings_mod.save(settings_mod.Settings())
     if sys.platform.startswith("linux"):
-        assert (isolated_dirs / "config" / "ai-usage-widget" / "settings.json").exists()
+        assert (isolated_dirs / "config" / "quotaring" / "settings.json").exists()
 
 
 def test_format_helpers():
@@ -85,9 +84,9 @@ def test_format_helpers():
 def test_autostart_desktop_file(isolated_dirs):
     assert not autostart.is_enabled()
     autostart.set_enabled(True)
-    f = isolated_dirs / "config" / "autostart" / "ai-usage-widget.desktop"
+    f = isolated_dirs / "config" / "autostart" / "quotaring.desktop"
     text = f.read_text()
-    assert "Exec=" in text and "-m aiusage" in text and "Type=Application" in text
+    assert "Exec=" in text and "-m quotaring" in text and "Type=Application" in text
     assert autostart.is_enabled()
     autostart.set_enabled(False)
     assert not f.exists()
@@ -100,7 +99,7 @@ def test_today_period_start_is_local_midnight():
 
 
 def test_daily_totals():
-    from aiusage.aggregate import daily_totals
+    from quotaring.aggregate import daily_totals
     days = daily_totals([ev(NOW - 60, n=5), ev(NOW - 86400, n=7), ev(None, n=100),
                          ev(NOW - 40 * 86400, n=9), ev(NOW + 7200, n=11)], NOW, days=14)
     assert len(days) == 14
@@ -117,7 +116,7 @@ def test_local_usage_daily_roundtrip_and_bad_rows():
 
 
 def test_tray_summary_only_reports_provider_quota():
-    from aiusage.aggregate import aggregate
+    from quotaring.aggregate import aggregate
     ok = ProviderSnapshot("claude", "Claude Code",
                           LocalUsage(State.OK, aggregate([ev(NOW - 10, n=2500)], NOW)),
                           Quota(State.OK, [QuotaWindow("five_hour", "5-hour session", 24.0),

@@ -1,9 +1,9 @@
 import json
 import time
 
-from aiusage.engine import RATE_LIMIT_BACKOFF, Engine, merge_local, merge_quota
-from aiusage.model import LocalUsage, PeriodUsage, Quota, QuotaWindow, State, Tokens
-from aiusage.providers.base import Provider, QuotaError, classify_error_text, with_retries
+from quotaring.engine import RATE_LIMIT_BACKOFF, Engine, merge_local, merge_quota
+from quotaring.model import LocalUsage, PeriodUsage, Quota, QuotaWindow, State, Tokens
+from quotaring.providers.base import Provider, QuotaError, classify_error_text, with_retries
 
 NOW = time.time()
 

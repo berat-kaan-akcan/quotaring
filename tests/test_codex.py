@@ -1,7 +1,7 @@
 import time
 
-from aiusage.model import State
-from aiusage.providers.codex import CodexProvider, parse_codex_lines, windows_from_rate_limits
+from quotaring.model import State
+from quotaring.providers.codex import CodexProvider, parse_codex_lines, windows_from_rate_limits
 from conftest import iso, write_jsonl
 
 NOW = time.time()

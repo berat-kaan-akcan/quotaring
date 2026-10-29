@@ -2,9 +2,9 @@ import os
 import sqlite3
 import time
 
-from aiusage import protowire as pw
-from aiusage.model import State
-from aiusage.providers.antigravity import AntigravityProvider, parse_generation
+from quotaring import protowire as pw
+from quotaring.model import State
+from quotaring.providers.antigravity import AntigravityProvider, parse_generation
 
 NOW = time.time()
 
@@ -168,6 +168,83 @@ def test_db_deleted_during_scan_is_skipped(settings, tmp_path, monkeypatch):
             raise FileNotFoundError(path)
         return real(path)
 
-    monkeypatch.setattr("aiusage.providers.antigravity.os.path.getmtime", flaky)
+    monkeypatch.setattr("quotaring.providers.antigravity.os.path.getmtime", flaky)
     u = AntigravityProvider(settings, roots=[root]).collect_local(NOW)
     assert u.state == State.OK and u.period("all").events == 1
+
+
+# -- quota from the IDE's cached UserStatus ------------------------------------
+def _pb_varint(n):
+    out = bytearray()
+    while True:
+        b = n & 0x7F
+        n >>= 7
+        out.append(b | (0x80 if n else 0))
+        if not n:
+            return bytes(out)
+
+
+def _pb(field, value):
+    if isinstance(value, int):
+        return _pb_varint(field << 3) + _pb_varint(value)
+    return _pb_varint(field << 3 | 2) + _pb_varint(len(value)) + value
+
+
+def _pb_float(field, value):
+    import struct
+    return _pb_varint(field << 3 | 5) + struct.pack("<f", value)
+
+
+def _model(label, remaining, reset):
+    quota = _pb_float(1, remaining) + _pb(2, _pb(1, reset))
+    return _pb(1, label.encode()) + _pb(15, quota)
+
+
+def _state_db(path, user_status: bytes):
+    import base64
+    import sqlite3
+    record = _pb(1, _pb(1, b"userStatusSentinelKey") + _pb(2, _pb(1, base64.b64encode(user_status))))
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB)")
+    con.execute("INSERT INTO ItemTable VALUES (?, ?)",
+                ("antigravityUnifiedStateSync.userStatus", base64.b64encode(record).decode()))
+    con.execute("INSERT INTO ItemTable VALUES ('antigravityUnifiedStateSync.oauthToken', 'SECRET')")
+    con.commit()
+    con.close()
+
+
+def test_quota_from_ide_cache(tmp_path):
+    import time
+    from quotaring.model import State
+    from quotaring.providers.antigravity import AntigravityProvider
+    from quotaring.settings import Settings
+    now = time.time()
+    status = (_pb(3, b"Some Name") + _pb(7, b"someone@example.com")
+              + _pb(33, _pb(1, _model("Gemini 3.8 Flash (High)", 1.0, int(now) + 3600))
+                    + _pb(1, _model("Gemini 3.8 Flash (Low)", 0.4, int(now) + 1800))
+                    + _pb(1, _model("Claude Opus 5.5 (High)", 0.75, int(now) + 7200)))
+              + _pb(36, _pb(1, b"g1-pro-tier") + _pb(2, b"Google AI Pro")))
+    db = tmp_path / "state.vscdb"
+    _state_db(db, status)
+    q = AntigravityProvider(Settings(), roots=[], state_dbs=[db])._collect_quota(now)
+    assert q.state == State.OK and q.plan == "Google AI Pro"
+    assert [(w.label, w.used_percent) for w in q.windows] == [("Gemini 3.8 Flash", 60.0), ("Claude Opus 5.5", 25.0)]
+    assert q.windows[0].resets_at == int(now) + 1800  # earliest reset of the family
+    assert "example.com" not in repr(q) and "SECRET" not in repr(q) and "Some Name" not in repr(q)
+
+
+def test_quota_cache_old_or_missing(tmp_path):
+    import os
+    import time
+    from quotaring.model import State
+    from quotaring.providers.antigravity import QUOTA_STALE_AFTER, AntigravityProvider
+    from quotaring.settings import Settings
+    now = time.time()
+    p = AntigravityProvider(Settings(), roots=[], state_dbs=[tmp_path / "missing.vscdb"])
+    assert p._collect_quota(now).state == State.UNAVAILABLE
+    db = tmp_path / "state.vscdb"
+    _state_db(db, _pb(33, _pb(1, _model("Gemini 3.8 Flash (High)", 0.5, int(now) + 60))))
+    old = now - QUOTA_STALE_AFTER - 60
+    os.utime(db, (old, old))
+    q = AntigravityProvider(Settings(), roots=[], state_dbs=[db])._collect_quota(now)
+    assert q.state == State.STALE and q.updated_at == old and q.windows[0].used_percent == 50.0

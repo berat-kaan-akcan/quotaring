@@ -5,8 +5,8 @@
 #   ./packaging/linux/build_in_docker.sh && ./packaging/linux/build_appimage_docker.sh
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-VERSION=$(python3 -c "import re;print(re.search(r'__version__ = \"(.+)\"', open('aiusage/__init__.py').read())[1])")
-TARBALL=packaging/out/ai-usage-widget-$VERSION-linux-x86_64-ubuntu22.04.tar.gz
+VERSION=$(python3 -c "import re;print(re.search(r'__version__ = \"(.+)\"', open('quotaring/__init__.py').read())[1])")
+TARBALL=packaging/out/quotaring-$VERSION-linux-x86_64-ubuntu22.04.tar.gz
 [ -f "$TARBALL" ] || { echo "missing $TARBALL — run build_in_docker.sh first"; exit 1; }
 TOOL_URL=${APPIMAGETOOL_URL:-https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage}
 docker run --rm -v "$PWD":/src:ro -v "$PWD/packaging/out":/out -e VERSION="$VERSION" -e TOOL_URL="$TOOL_URL" \
@@ -18,13 +18,13 @@ docker run --rm -v "$PWD":/src:ro -v "$PWD/packaging/out":/out -e VERSION="$VERS
   chmod +x /tmp/appimagetool
   echo "appimagetool sha256: $(sha256sum /tmp/appimagetool | cut -d" " -f1)"
   A=/tmp/AppDir; mkdir -p $A/usr/bin
-  tar -xzf /out/ai-usage-widget-$VERSION-linux-x86_64-ubuntu22.04.tar.gz -C /tmp
-  cp -a /tmp/ai-usage-widget/. $A/usr/bin/
-  install -m644 /src/packaging/linux/ai-usage-widget.desktop $A/
-  install -m644 /src/packaging/icons/ai-usage-widget-256.png $A/ai-usage-widget.png
-  printf "#!/bin/sh\nexec \"\$(dirname \"\$(readlink -f \"\$0\")\")/usr/bin/ai-usage-widget\" \"\$@\"\n" > $A/AppRun
+  tar -xzf /out/quotaring-$VERSION-linux-x86_64-ubuntu22.04.tar.gz -C /tmp
+  cp -a /tmp/quotaring/. $A/usr/bin/
+  install -m644 /src/packaging/linux/quotaring.desktop $A/
+  install -m644 /src/packaging/icons/quotaring-256.png $A/quotaring.png
+  printf "#!/bin/sh\nexec \"\$(dirname \"\$(readlink -f \"\$0\")\")/usr/bin/quotaring\" \"\$@\"\n" > $A/AppRun
   chmod +x $A/AppRun
-  F=/out/ai-usage-widget-$VERSION-x86_64.AppImage
+  F=/out/quotaring-$VERSION-x86_64.AppImage
   ARCH=x86_64 /tmp/appimagetool --appimage-extract-and-run --no-appstream $A "$F" >/tmp/ait.log 2>&1 || { tail -20 /tmp/ait.log; exit 1; }
   chown "$HOST_UID:$HOST_GID" "$F"
   file "$F"

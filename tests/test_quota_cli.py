@@ -4,9 +4,9 @@ import time
 
 import pytest
 
-from aiusage.model import State
-from aiusage.providers.claude import ClaudeProvider
-from aiusage.providers.codex import CodexProvider
+from quotaring.model import State
+from quotaring.providers.claude import ClaudeProvider
+from quotaring.providers.codex import CodexProvider
 from conftest import fake_cli
 
 NOW = time.time()
@@ -100,7 +100,7 @@ def test_claude_quota_cli_2_1_312_shape(settings, tmp_path):
     ("exit", State.UNAVAILABLE),
 ])
 def test_claude_quota_failures(settings, tmp_path, mode, state, monkeypatch):
-    monkeypatch.setattr("aiusage.providers.base.time.sleep", lambda s: None)
+    monkeypatch.setattr("quotaring.providers.base.time.sleep", lambda s: None)
     q = claude(settings, tmp_path, mode)
     assert q.state == state
     assert q.windows == []
@@ -108,7 +108,7 @@ def test_claude_quota_failures(settings, tmp_path, mode, state, monkeypatch):
 
 
 def test_claude_quota_timeout(settings, tmp_path, monkeypatch):
-    monkeypatch.setattr("aiusage.providers.base.time.sleep", lambda s: None)
+    monkeypatch.setattr("quotaring.providers.base.time.sleep", lambda s: None)
     settings.timeout_seconds = 1
     start = time.monotonic()
     q = claude(settings, tmp_path, "hang")
@@ -187,7 +187,7 @@ def test_codex_quota_states(settings, tmp_path, mode, state):
 
 
 def test_codex_quota_timeout(settings, tmp_path, monkeypatch):
-    monkeypatch.setattr("aiusage.providers.base.time.sleep", lambda s: None)
+    monkeypatch.setattr("quotaring.providers.base.time.sleep", lambda s: None)
     settings.timeout_seconds = 1
     q = codex(settings, tmp_path, "hang")
     assert q.state == State.UNAVAILABLE and "timed out" in q.detail
@@ -195,7 +195,7 @@ def test_codex_quota_timeout(settings, tmp_path, monkeypatch):
 
 def test_claude_native_install_fallback(settings, tmp_path, isolated_dirs):
     import os
-    from aiusage.providers import claude as cmod
+    from quotaring.providers import claude as cmod
     versions = isolated_dirs / "home" / ".local" / "share" / "claude" / "versions"
     versions.mkdir(parents=True)
     for v in ("2.1.9", "2.1.312", "2.1.40"):
@@ -208,7 +208,7 @@ def test_claude_native_install_fallback(settings, tmp_path, isolated_dirs):
 
 def test_shutdown_kills_running_query_and_stops_retries(settings, tmp_path):
     import threading
-    from aiusage.providers import base
+    from quotaring.providers import base
     settings.timeout_seconds = 30
     settings.claude_command = fake_cli(tmp_path, "claude", CLAUDE_TEMPLATE.format(mode="hang"))
     out = {}

@@ -7,3 +7,4 @@ dist/
 *.egg-info/
 packaging/out/
 .tools/
+.claude/scheduled_tasks.lock

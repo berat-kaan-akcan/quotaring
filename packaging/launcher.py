@@ -1,5 +1,5 @@
 """PyInstaller entry point."""
 
-from aiusage.app import main
+from quotaring.app import main
 
 raise SystemExit(main())
