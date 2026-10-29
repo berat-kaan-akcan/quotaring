@@ -238,3 +238,31 @@ def test_accent_setting_round_trip(app, settings):
     assert settings.accent == "amber"
     assert settings_form.form(settings, False)["values"]["accent"] == "amber"
     assert not make_icon(settings.accent).pixmap(32, 32).isNull()
+
+
+def test_settings_apply_without_save(app, settings, qml_errors):
+    from PySide6.QtCore import Q_ARG, QMetaObject
+    from quotaring.ui import settings_form
+    backend, popup = popup_for(settings)
+    backend.set_settings_form(settings_form.form(settings, True))
+    saved = []
+    backend.settingsSaved.connect(lambda values: saved.append(values))
+    popup.open_settings()
+    settle(app)
+    win = popup.settings_window
+
+    def change(key, value, typed=False):
+        QMetaObject.invokeMethod(win, "set", Q_ARG("QVariant", key), Q_ARG("QVariant", value),
+                                 Q_ARG("QVariant", typed))
+
+    change("theme", "dark")
+    deadline = time.time() + 2
+    while not saved and time.time() < deadline:
+        settle(app, 1)
+        time.sleep(0.02)
+    assert saved and saved[-1]["theme"] == "dark"  # applied without a Save button
+    change("claude_command", "/opt/claude", typed=True)
+    win.close()  # closing applies a typed value that was still waiting for a pause
+    settle(app)
+    assert saved[-1]["claude_command"] == "/opt/claude"
+    assert qml_errors == []

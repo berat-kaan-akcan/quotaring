@@ -232,9 +232,18 @@ class Controller(QObject):
         self.backend.set_settings_form(settings_form.form(self.settings, autostart.supported()))
         self.popup.open_settings()
 
+    def _data_settings(self) -> tuple:
+        """Settings that change what is collected: only these warrant querying the providers again."""
+        s = self.settings
+        return (dict(s.providers_enabled), dict(s.quota_enabled), s.claude_command, s.codex_command,
+                s.timeout_seconds)
+
     def apply_settings(self, values: dict):
+        """Called for every change in the settings window (it has no Save button)."""
+        before = (self._data_settings(), self.settings.language)
         settings_form.apply(self.settings, values)
-        self.apply_language()
+        if self.settings.language != before[1]:
+            self.apply_language()
         try:
             if autostart.supported() and autostart.is_enabled() != self.settings.start_at_login:
                 autostart.set_enabled(self.settings.start_at_login)
@@ -244,8 +253,9 @@ class Controller(QObject):
         self.backend.notify_settings_changed()
         self.apply_theme()
         self.apply_intervals()
-        self.engine.next_quota_at.clear()
-        self.refresh(force=True)
+        if self._data_settings() != before[0]:
+            self.engine.next_quota_at.clear()
+            self.refresh(force=True)
 
     def apply_language(self):
         """Switch the UI language now: every text is translated when the view is rebuilt."""

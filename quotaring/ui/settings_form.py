@@ -27,7 +27,7 @@ def form(s: Settings, autostart_supported: bool) -> dict:
         "autostartHint": "Start QuotaRing when you log in", "notify": "Notify at quota",
         "notifyHint": "Notify when a limit's use reaches", "off": "Off", "track": "Track this provider",
         "checkQuota": "Check the provider's account limits", "claudeCommand": "claude command",
-        "codexCommand": "codex command", "save": "Save", "cancel": "Cancel",
+        "codexCommand": "codex command", "close": "Close", "instant": "Changes apply right away",
         "privacy": "Quota checks start the provider's own CLI (no model request). "
                    "The widget never reads or stores credentials.",
     }.items()}

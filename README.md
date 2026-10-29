@@ -144,8 +144,9 @@ Saved as JSON in:
 
 <img src="docs/images/settings-dark.png" width="360" align="right" alt="Settings window, dark theme">
 
-Open Settings from the gear in the popup or the tray menu. Changes apply on Save, without a
-restart — including the language (follows the system, Turkish or English, or set it here).
+Open Settings from the gear in the popup or the tray menu. Every change applies as you make it,
+with no Save button and no restart, including the language (follows the system, Turkish or
+English, or set it here) and the accent colour.
 
 Options: theme (system / light / dark), accent colour (Slate, Ink or Amber; the tray and app icon follow it), language, limits as percent left or used, local
 refresh interval (default 60 s), quota refresh interval (default 300 s), query timeout (20 s),

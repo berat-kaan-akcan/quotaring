@@ -2,8 +2,8 @@ import QtQuick
 import QtQuick.Controls.Basic  // own look on every OS; native styles ignore custom backgrounds
 import QtQuick.Layouts
 
-// Settings, in the popup's look. Edits a draft of `backend.settingsForm.values` (see
-// ui/settings_form.py); Save hands it to Python, which clamps and applies it.
+// Settings, in the popup's look. Edits a copy of `backend.settingsForm.values` (see
+// ui/settings_form.py) and hands every change to Python right away, which clamps and applies it.
 Window {
     id: win
     readonly property var f: backend.settingsForm
@@ -18,15 +18,24 @@ Window {
     title: t.title || "Settings"
     color: c.bg
 
-    function set(key, value) {
+    // Changes apply as they are made. Typed paths wait for a pause so a half-typed one is never used.
+    function set(key, value, typed) {
         const d = Object.assign({}, draft);
         d[key] = value;
         draft = d;
+        applyTimer.interval = typed ? 800 : 150;
+        applyTimer.restart();
     }
-    onVisibleChanged: if (visible) draft = Object.assign({}, f.values || {})
+    function flush() {
+        if (applyTimer.running) {
+            applyTimer.stop();
+            backend.saveSettings(draft);
+        }
+    }
+    Timer { id: applyTimer; onTriggered: backend.saveSettings(win.draft) }
+    onVisibleChanged: if (visible) draft = Object.assign({}, f.values || {}); else flush()
 
     Shortcut { sequence: "Esc"; onActivated: win.close() }
-    Shortcut { sequences: ["Ctrl+S", "Ctrl+Return"]; onActivated: save.clicked() }
 
     ColumnLayout {
         anchors.fill: parent
@@ -209,8 +218,8 @@ Window {
 
                 Section {
                     title: win.t.commands
-                    Field { label: win.t.claudeCommand; text: win.draft.claude_command || ""; onEdited: v => win.set("claude_command", v) }
-                    Field { label: win.t.codexCommand; text: win.draft.codex_command || ""; onEdited: v => win.set("codex_command", v) }
+                    Field { label: win.t.claudeCommand; text: win.draft.claude_command || ""; onEdited: v => win.set("claude_command", v, true) }
+                    Field { label: win.t.codexCommand; text: win.draft.codex_command || ""; onEdited: v => win.set("codex_command", v, true) }
                     Text {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
@@ -234,17 +243,13 @@ Window {
                 anchors.leftMargin: 18
                 anchors.rightMargin: 18
                 spacing: 10
-                Item { Layout.fillWidth: true }
-                Button2 { text: win.t.cancel || "Cancel"; onClicked: win.close() }
-                Button2 {
-                    id: save
-                    primary: true
-                    text: win.t.save || "Save"
-                    onClicked: {
-                        backend.saveSettings(win.draft);
-                        win.close();
-                    }
+                Text {
+                    text: win.t.instant || ""
+                    color: win.c.muted
+                    font.pointSize: 8.5
                 }
+                Item { Layout.fillWidth: true }
+                Button2 { text: win.t.close || "Close"; onClicked: win.close() }
             }
         }
     }
