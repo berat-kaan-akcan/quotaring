@@ -62,6 +62,7 @@
 - 💵 **What it would cost on the API.** Each model and total is priced at API list rates, cache included. Prices update themselves weekly.
 - 🔒 **No credentials touched.** Limits come from each tool's own CLI or local server; files are opened read-only.
 - 🔔 **Notifications** once per limit window: warning levels of your choice (50–95 %), limit full, limit reset; per provider, with a mute in the tray menu. Each notification carries the limit's ring as its icon, and clicking one opens the popup.
+- ⬆️ **Updates itself.** A new release shows up in the popup; *Update* installs it and restarts, checked against the release's SHA-256 sums.
 - 🖥️ **Linux and Windows.** GNOME and KDE, X11 and Wayland (layer-shell popup on Plasma); runs from source on macOS; English and Turkish.
 
 ## Download
@@ -103,6 +104,20 @@ a native pacman package with `./packaging/arch/build.sh -s` (see [Linux packages
 your choice in Settings). Hover it for each provider's limits; click it to open the popup above the
 panel; right-click for Show / hide, Refresh, Settings, Notifications (on/off, mute for 1 hour or
 until tomorrow) and Quit. Click anywhere else or press Esc to close the popup.
+
+**Updates.** When a newer release is out, a banner at the top of the Limits page and an item in
+the tray menu offer it. *Update* downloads the file for your kind of install, checks it against the
+release's `SHA256SUMS.txt`, installs it and starts the new version:
+
+| Installed from | What *Update* does |
+|---|---|
+| Windows installer | runs the new installer silently, then starts the app |
+| Windows zip, Linux tarball | swaps the folder for the new one (the old one is put back if that fails) |
+| AppImage | replaces the AppImage file |
+| `.deb` | installs the new package with `apt` through `pkexec` (asks for your password) |
+| Arch package, source, non-x86_64 | opens the release page; update with your package manager or `git pull` |
+
+If an update fails, the banner says so and its button opens the release page instead.
 
 **Limits page.** One card per provider. The outer ring is the 5-hour window, the inner ring the
 weekly one, in the provider's colour; the middle shows the tightest limit. Hover either ring for
@@ -164,7 +179,7 @@ do not contain.
 | Section | Options |
 |---|---|
 | Appearance | Theme (system / light / dark) · accent colour (Slate, Ink or Amber; the app icon follows it, the tray ring follows the system panel's light/dark theme, and Amber shifts warnings to orange) · language (system, English, Türkçe) · limits as percent left or used |
-| General | Start at login · update API prices |
+| General | Start at login · update API prices · check for updates |
 | Notifications | On / off · warning levels (any of 50, 75, 80, 90, 95 %; only fresh, provider-reported values; jumps fire only the highest crossed level) · limit full · limit reset (off by default) · which providers · test notification. The tray menu toggles them or mutes for an hour or until tomorrow (muted alerts still count as seen, so unmuting never floods) |
 | Providers | Per provider: track it, and check its account limits |
 | Advanced | Local refresh interval (60 s) · quota refresh interval (300 s) · query timeout (20 s) · custom `claude` / `codex` paths |
@@ -172,7 +187,8 @@ do not contain.
 Settings are saved as JSON in `$XDG_CONFIG_HOME/quotaring/settings.json` (default `~/.config/…`)
 or `%APPDATA%\QuotaRing\settings.json`. Card order and the limit you pin on a ring are saved too.
 
-The cache (last good results, incremental-scan state, downloaded prices, shown-alert keys) lives in
+The cache (last good results, incremental-scan state, downloaded prices, shown-alert keys, the
+last release check and a downloaded update) lives in
 `$XDG_CACHE_HOME/quotaring/` or `%LOCALAPPDATA%\QuotaRing\Cache\`. It holds model names, token
 counts, message ids, alert window keys and history file paths — no conversation text. Delete it any
 time; it is rebuilt.
@@ -198,7 +214,9 @@ time; it is rebuilt.
       queried read-only for the single `antigravityUnifiedStateSync.userStatus` key, decoding only
       model quota fractions, reset timestamps and plan tier (never OAuth tokens, name or email).
 - The only requests to the internet are the two public price lists for the cost estimate, at
-  most once a week, with no identifiers. Turn off *Update API prices* to use the built-in table only.
+  most once a week, and GitHub's public API for the latest QuotaRing release, at most twice a day;
+  neither carries identifiers. Turn off *Update API prices* to use the built-in table only, and
+  *Check for updates* to never ask GitHub. Downloads happen only when you press *Update*.
 - The CLIs' stderr is discarded. Every query has a timeout and at most 3 attempts with backoff;
   quota checks speed up to every 2 minutes above 80 % used, and rate limiting (HTTP 429) backs
   them off to at least 15 minutes.
