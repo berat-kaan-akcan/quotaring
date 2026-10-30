@@ -209,6 +209,11 @@ def download(release: Release, kind: str, workdir: Path | None = None, opener=_g
     return dest
 
 
+def clean_downloads(workdir: Path | None = None) -> None:
+    """Remove what `download` left behind once that update is installed."""
+    shutil.rmtree(workdir or paths.cache_dir() / "update", ignore_errors=True)
+
+
 def _safe_members(names, root: Path):
     """Raise when an archive entry would land outside `root`."""
     root = root.resolve()

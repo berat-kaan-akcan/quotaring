@@ -158,6 +158,23 @@ def test_popup_stays_put_when_its_page_changes_size(app, settings, monkeypatch):
                                                        screen.x(), screen.width())
 
 
+def test_popup_opened_without_a_click_goes_by_the_tray(app, settings, monkeypatch):
+    """At start (right after install) the pointer is anywhere: the popup opens by the given tray point."""
+    from PySide6.QtCore import QPoint
+    from quotaring.ui import popup as popup_mod
+    screen = app.primaryScreen().availableGeometry()
+    monkeypatch.setattr(popup_mod.QCursor, "pos", staticmethod(lambda: screen.center()))
+    _backend, popup = popup_for(settings, docked=True)
+    tray = QPoint(screen.right() - 150, screen.bottom())
+    popup.show(tray)
+    settle(app)
+    assert popup.window.x() == popup_mod.centered_left(tray.x(), popup.window.width(), screen.x(), screen.width())
+    popup.window.setHeight(popup.window.height() + 80)  # a page change keeps to the tray, not the pointer
+    settle(app)
+    assert popup.window.x() == popup_mod.centered_left(tray.x(), popup.window.width(), screen.x(), screen.width())
+    popup.hide()
+
+
 @pytest.mark.parametrize("panel", ["bottom", "top"])
 def test_popup_keeps_its_place_on_every_screen(app, settings, qml_errors, monkeypatch, panel):
     """Every page, chip, period, settings state, the update banner and new data: the popup keeps

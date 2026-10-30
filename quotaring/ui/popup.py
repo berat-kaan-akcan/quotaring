@@ -8,7 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-from PySide6.QtCore import Property, QObject, QRect, QTimer, QUrl, Signal, Slot, qVersion
+from PySide6.QtCore import Property, QObject, QPoint, QRect, QTimer, QUrl, Signal, Slot, qVersion
 from PySide6.QtGui import QCursor, QGuiApplication
 from PySide6.QtQml import QJSValue, QQmlApplicationEngine
 
@@ -277,9 +277,13 @@ class Popup:
     def is_visible(self) -> bool:
         return self.window.isVisible()
 
-    def show(self):
+    def show(self, anchor: QPoint | None = None):
+        """Open by `anchor`, by default the cursor: a tray click leaves it on the icon.
+
+        When the popup opens on its own (at start, from a notification) the cursor can be anywhere,
+        so the caller passes the tray icon's place."""
         if self.docked and not self.layer:
-            self._anchor = QCursor.pos()
+            self._anchor = anchor if anchor is not None else QCursor.pos()
             self._place()
         self._shown_at = time.monotonic()
         self.window.show()

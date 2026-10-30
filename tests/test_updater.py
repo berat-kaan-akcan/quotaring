@@ -139,6 +139,14 @@ def test_download_verifies_the_checksum(tmp_path):
     assert not (tmp_path / "w" / "quotaring_0.2.0_amd64.deb").exists()
 
 
+def test_downloaded_installer_is_cleaned_up(tmp_path):
+    r, web = release_with("quotaring_0.2.0_amd64.deb", b"package")
+    updater.download(r, "deb", tmp_path / "w", opener=web)
+    updater.clean_downloads(tmp_path / "w")
+    assert not (tmp_path / "w").exists()
+    updater.clean_downloads(tmp_path / "w")  # nothing there: no error
+
+
 def test_download_needs_a_listed_checksum(tmp_path):
     r, web = release_with("quotaring_0.2.0_amd64.deb", b"package")
     web.files["SHA256SUMS.txt"] = b""

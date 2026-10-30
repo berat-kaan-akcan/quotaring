@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+- When QuotaRing opens its popup by itself (first start after install, a click on a
+  notification) it opens by the tray icon instead of wherever the pointer happens to be
+  (Windows, X11, XWayland).
+- The installer of an update is deleted once the new version has started, instead of staying
+  in the cache until the next update (about 43 MB on Windows).
+
 ## [0.2.2] - 2026-10-30
 
 ### Added

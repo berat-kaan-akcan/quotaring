@@ -8,7 +8,7 @@ import os
 import sys
 import time
 
-from PySide6.QtCore import QLockFile, QObject, QPointF, QRectF, QRunnable, Qt, QThreadPool, QTimer, QUrl, Signal
+from PySide6.QtCore import QLockFile, QObject, QPoint, QPointF, QRectF, QRunnable, Qt, QThreadPool, QTimer, QUrl, Signal
 from PySide6.QtGui import (QAction, QColor, QDesktopServices, QFont, QFontDatabase, QFontMetricsF, QIcon, QPainter,
                            QPen, QPixmap)
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
@@ -19,7 +19,7 @@ from .providers import ALL
 from .providers.base import shutdown_children
 from .i18n import set_language, tr
 from .ui import settings_form, theme
-from .ui.popup import Backend, Popup, layer_shell_import_dir
+from .ui.popup import Backend, Popup, layer_shell_import_dir, panel_at_top
 
 log = logging.getLogger("quotaring")
 
@@ -226,7 +226,7 @@ class Controller(QObject):
             self.tray.setContextMenu(self._menu)
             self.tray.setToolTip(tr("QuotaRing"))
             self.tray.activated.connect(self._tray_activated)
-            self.tray.messageClicked.connect(lambda: self.popup.is_visible() or self.popup.show())
+            self.tray.messageClicked.connect(lambda: self.popup.is_visible() or self.popup.show(self.tray_point()))
             self.tray.show()
             if sys.platform == "win32" and getattr(sys, "frozen", False):
                 # Explorer adds the icon's settings entry a moment after it first appears.
@@ -243,7 +243,10 @@ class Controller(QObject):
 
         self.update_view()
         if not start_hidden or self.tray is None:
-            self.popup.show()
+            self.popup.show(self.tray_point())
+        # The installer of the last update is no longer needed. Not at once: on Windows the setup
+        # that started this copy may still be running from that folder.
+        QTimer.singleShot(60_000, lambda: self.update_state == "installing" or updater.clean_downloads())
 
         self.local_timer = QTimer(self)
         self.local_timer.timeout.connect(lambda: self.refresh(local=True, quota=False))
@@ -504,6 +507,20 @@ class Controller(QObject):
             settings_mod.save(self.settings)
         except OSError:
             log.warning("could not save settings")
+
+    def tray_point(self) -> QPoint | None:
+        """The tray icon's centre, else the corner by the clock (the icon in the hidden-icons flyout
+        or a tray that does not tell); None without a tray, where the popup is a normal window."""
+        if self.tray is None:
+            return None
+        g = self.tray.geometry()
+        if g.isValid() and not g.isEmpty():
+            return g.center()
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            return None
+        a = screen.availableGeometry()
+        return QPoint(a.right(), a.top() if panel_at_top(screen) else a.bottom())
 
     def popup_toggle(self):
         self.popup.toggle()
