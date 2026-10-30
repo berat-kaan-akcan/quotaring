@@ -39,6 +39,7 @@ def isolated_dirs(tmp_path, monkeypatch):
     monkeypatch.setattr("quotaring.pricing._fetched_at", None)
     monkeypatch.setattr("quotaring.pricing.REMOTE_URL", "http://127.0.0.1:9/litellm")
     monkeypatch.setattr("quotaring.pricing.OPENROUTER_URL", "http://127.0.0.1:9/openrouter")
+    monkeypatch.setattr("quotaring.updater.API_URL", "http://127.0.0.1:9/releases")
     return tmp_path
 
 

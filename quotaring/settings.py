@@ -30,6 +30,7 @@ class Settings:
     notify_providers: dict = field(default_factory=lambda: {p: True for p in PROVIDER_IDS})
     notify_snooze_until: float = 0.0  # epoch seconds; notifications are held back until then
     update_prices: bool = True  # download the API price list weekly (Tokens page estimate)
+    check_updates: bool = True  # ask GitHub for a newer QuotaRing release twice a day
     providers_enabled: dict = field(default_factory=lambda: {p: True for p in PROVIDER_IDS})
     quota_enabled: dict = field(default_factory=lambda: {p: True for p in PROVIDER_IDS})
     claude_command: str = "claude"

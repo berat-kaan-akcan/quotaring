@@ -45,3 +45,11 @@ Filename: "{cmd}"; Parameters: "/c reg delete HKCU\Software\Microsoft\Windows\Cu
 
 [Run]
 Filename: "{app}\quotaring.exe"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
+; The in-app updater runs setup with /VERYSILENT /RELAUNCH=1: start the new version afterwards.
+Filename: "{app}\quotaring.exe"; Flags: nowait; Check: Relaunch
+
+[Code]
+function Relaunch: Boolean;
+begin
+  Result := WizardSilent and (ExpandConstant('{param:relaunch|0}') = '1');
+end;

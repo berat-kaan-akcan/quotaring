@@ -8,11 +8,12 @@ import os
 import sys
 import time
 
-from PySide6.QtCore import QLockFile, QObject, QPointF, QRectF, QRunnable, Qt, QThreadPool, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QFont, QFontDatabase, QFontMetricsF, QIcon, QPainter, QPen, QPixmap
+from PySide6.QtCore import QLockFile, QObject, QPointF, QRectF, QRunnable, Qt, QThreadPool, QTimer, QUrl, Signal
+from PySide6.QtGui import (QAction, QColor, QDesktopServices, QFont, QFontDatabase, QFontMetricsF, QIcon, QPainter,
+                           QPen, QPixmap)
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-from . import __version__, alerts, autostart, paths, pricing, settings as settings_mod, traypin, viewmodel
+from . import __version__, alerts, autostart, paths, pricing, settings as settings_mod, traypin, updater, viewmodel
 from .engine import Engine
 from .providers import ALL
 from .providers.base import shutdown_children
@@ -200,6 +201,9 @@ class Controller(QObject):
         self.signals = _Signals()
         self.signals.done.connect(self._on_done)
         self.seen_alerts = alerts.Seen()
+        self.release = None  # a newer release, once one is found
+        self.update_state = "idle"  # idle | installing | failed
+        self.install_kind = updater.install_kind()
 
         self.palette = theme.resolve(self.settings.theme, self.settings.accent)
         self.icon = make_icon(self.settings.accent)
@@ -210,6 +214,7 @@ class Controller(QObject):
         self.backend.hideRequested.connect(self.hide_popup)
         self.backend.quitRequested.connect(self.quit)
         self.backend.testNotificationRequested.connect(self.test_notification)
+        self.backend.updateRequested.connect(self.install_update)
         self.backend.prefsSaved.connect(self.save_settings)
         self.backend.settingsSaved.connect(self.apply_settings)
         self.backend.prefsChanged.connect(self.update_view)  # the tray ring follows used/left
@@ -250,9 +255,13 @@ class Controller(QObject):
         self.prices_timer = QTimer(self)  # the list itself is fetched at most weekly
         self.prices_timer.timeout.connect(self.refresh_prices)
         self.prices_timer.start(6 * 3600 * 1000)
+        self.update_timer = QTimer(self)  # GitHub itself is asked at most twice a day
+        self.update_timer.timeout.connect(self.check_updates)
+        self.update_timer.start(3600 * 1000)
         self.apply_intervals()
         QTimer.singleShot(0, lambda: self.refresh(force=True))
         QTimer.singleShot(10_000, self.refresh_prices)
+        QTimer.singleShot(20_000, self.check_updates)
 
     def _build_menu(self) -> QMenu:
         menu = QMenu()
@@ -263,6 +272,11 @@ class Controller(QObject):
             act.triggered.connect(fn)
             menu.addAction(act)
         menu.addMenu(self._notify_menu(menu))
+        if self.release is not None and self.settings.check_updates:
+            act = QAction(tr("Update to {v}").format(v=self.release.version), menu)
+            act.setEnabled(self.update_state != "installing")
+            act.triggered.connect(self.install_update)
+            menu.addAction(act)
         menu.addSeparator()
         quit_act = QAction(tr("Quit") + "\tCtrl+Q", menu)
         quit_act.triggered.connect(self.quit)
@@ -326,10 +340,61 @@ class Controller(QObject):
         if self.settings.update_prices:
             self.pool.start(Job(lambda _pid: pricing.refresh(), "prices", "prices", self.signals))
 
+    def check_updates(self):
+        if self.settings.check_updates and self.update_state != "installing":
+            self.pool.start(Job(lambda _pid: updater.check(__version__), "update", "update-check", self.signals))
+
+    def _show_update(self):
+        """The popup's banner and the tray's menu item for a newer release."""
+        r = self.release
+        if r is None or not self.settings.check_updates:
+            self.backend.set_update({})
+        else:
+            auto = updater.can_install(r, self.install_kind)
+            text = {"idle": tr("QuotaRing {v} is available"), "installing": tr("Updating to {v}…"),
+                    "failed": tr("Could not update to {v}")}[self.update_state].format(v=r.version)
+            action = "" if self.update_state == "installing" else                 tr("Update") if auto and self.update_state == "idle" else tr("Download page")
+            self.backend.set_update({"text": text, "action": action, "busy": self.update_state == "installing"})
+        if self.tray is not None:
+            self._menu = self._build_menu()
+            self.tray.setContextMenu(self._menu)
+
+    def install_update(self):
+        """Install the newer release and restart; where this copy cannot do that, open its page."""
+        r = self.release
+        if r is None or self.update_state == "installing":
+            return
+        if self.update_state == "failed" or not updater.can_install(r, self.install_kind):
+            QDesktopServices.openUrl(QUrl(r.page))
+            return
+        self.update_state = "installing"
+        self._show_update()
+
+        def run(_pid):
+            try:
+                updater.install(r, self.install_kind)
+                return True
+            except updater.UpdateError as e:
+                log.warning("update failed: %s", e)
+                return False
+        self.pool.start(Job(run, "update", "update-install", self.signals))
+
     def _on_done(self, pid: str, kind: str, result):
         if kind == "prices":
             if result:
                 self.update_view()
+            return
+        if kind == "update-check":
+            if self.update_state != "installing":
+                self.release = result
+                self._show_update()
+            return
+        if kind == "update-install":
+            if result:
+                self.quit()  # the new version starts once this one has gone
+            else:
+                self.update_state = "failed"
+                self._show_update()
             return
         self.engine.end(pid, kind)
         if result is not None:
@@ -404,10 +469,14 @@ class Controller(QObject):
 
     def apply_settings(self, values: dict):
         """Called for every change in the settings window (it has no Save button)."""
-        before = (self._data_settings(), self.settings.language, self.settings.update_prices)
+        before = (self._data_settings(), self.settings.language, self.settings.update_prices,
+                  self.settings.check_updates)
         settings_form.apply(self.settings, values)
         if self.settings.update_prices and not before[2]:
             self.refresh_prices()
+        if self.settings.check_updates != before[3]:
+            self._show_update()  # hides the banner when turned off
+            self.check_updates()
         if self.settings.language != before[1]:
             self.apply_language()
         try:
@@ -426,9 +495,7 @@ class Controller(QObject):
     def apply_language(self):
         """Switch the UI language now: every text is translated when the view is rebuilt."""
         set_language(self.settings.language)
-        if self.tray is not None:
-            self._menu = self._build_menu()
-            self.tray.setContextMenu(self._menu)
+        self._show_update()  # also rebuilds the tray menu
         self.backend.set_settings_form(settings_form.form(self.settings, autostart.supported(), self.tray is not None))
         self.update_view()
 

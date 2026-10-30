@@ -7,6 +7,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Added
+- Updates: a newer GitHub release shows a banner in the popup and an item in the tray menu.
+  *Update* downloads it, checks it against the release's SHA256SUMS.txt, installs it and starts
+  the new version: silently through the Windows installer, by swapping the folder of the Windows
+  zip or Linux tarball, by replacing the AppImage, or through apt under pkexec for the .deb. The
+  Arch package and source checkouts get a link to the release page instead. *Check for updates*
+  in Settings turns it off; GitHub is asked at most twice a day.
 - Provider cards can be rearranged: drag a card from anywhere on it to where you want it
   (with a mouse, or a touchpad's double-tap-and-drag); the order is saved.
 - Tokens page (click the token strip): period and provider chips, total with what it would cost

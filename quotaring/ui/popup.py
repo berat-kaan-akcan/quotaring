@@ -88,6 +88,8 @@ class Backend(QObject):
     focusLostRequested = Signal()
     quitRequested = Signal()
     testNotificationRequested = Signal()
+    updateRequested = Signal()
+    updateChanged = Signal()
     prefsSaved = Signal()
     settingsFormChanged = Signal()
     settingsSaved = Signal("QVariantMap")
@@ -101,6 +103,7 @@ class Backend(QObject):
         self._busy = False
         self._palette = palette
         self._form = {}
+        self._update = {}
 
     def set_settings_form(self, form: dict):
         self._form = form
@@ -117,6 +120,19 @@ class Backend(QObject):
     @Slot()
     def testNotification(self):
         self.testNotificationRequested.emit()
+
+    def set_update(self, update: dict):
+        """The new-version banner: {} hides it."""
+        self._update = update
+        self.updateChanged.emit()
+
+    @Property("QVariantMap", notify=updateChanged)
+    def updateInfo(self):
+        return self._update
+
+    @Slot()
+    def installUpdate(self):
+        self.updateRequested.emit()
 
     def set_view(self, view: dict):
         self._view = view

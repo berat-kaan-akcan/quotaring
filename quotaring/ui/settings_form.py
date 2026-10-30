@@ -11,7 +11,7 @@ NAMES = {"claude": "Claude Code", "codex": "Codex", "antigravity": "Antigravity"
 NO_QUOTA: dict[str, str] = {}  # providers without any quota source: their toggle is disabled
 SCALARS = ("local_refresh_seconds", "quota_refresh_seconds", "timeout_seconds", "theme", "language", "accent",
            "show_remaining", "start_at_login", "notify_enabled", "notify_limit_reached", "notify_reset",
-           "update_prices", "claude_command", "codex_command")
+           "update_prices", "check_updates", "claude_command", "codex_command")
 
 
 def form(s: Settings, autostart_supported: bool, notify_supported: bool = True) -> dict:
@@ -29,6 +29,7 @@ def form(s: Settings, autostart_supported: bool, notify_supported: bool = True) 
         "language": "Language", "accent": "Accent colour", "slate": "Slate", "ink": "Ink", "amber": "Amber",
         "remaining": "Show limits as the percent left (off: used)", "autostart": "Start at login",
         "prices": "Update API prices", "pricesHint": "Weekly, for the cost estimate on the Tokens page",
+        "updates": "Check for updates", "updatesHint": "Shows when a new QuotaRing version is out",
         "notifications": "Notifications", "notifyEnabled": "Quota notifications",
         "notifyEnabledHint": "Each one appears once per limit window",
         "notifyLevels": "Warn when usage reaches",

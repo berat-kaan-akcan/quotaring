@@ -82,6 +82,11 @@ ColumnLayout {
             hint: win.t.pricesHint
             Toggle { checked: !!win.draft.update_prices; onToggled: v => win.set("update_prices", v) }
         }
+        Row2 {
+            label: win.t.updates
+            hint: win.t.updatesHint
+            Toggle { checked: !!win.draft.check_updates; onToggled: v => win.set("check_updates", v) }
+        }
     }
 
     // What to be told about, and for which providers. Every alert appears once per limit window.

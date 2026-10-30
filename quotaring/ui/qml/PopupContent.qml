@@ -150,6 +150,53 @@ Item {
                     width: flick.width - 10
                     spacing: 12
 
+                    // A newer release: what it is, and one button that installs it (or opens its page).
+                    Rectangle {
+                        id: updateBar
+                        readonly property var u: backend.updateInfo
+                        visible: popup.page === "limits" && !!u.text
+                        Layout.fillWidth: true
+                        implicitHeight: updateRow.implicitHeight + 16
+                        radius: 12
+                        color: popup.c.card
+                        border.color: popup.c.accent
+                        RowLayout {
+                            id: updateRow
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            anchors.leftMargin: 12
+                            spacing: 10
+                            Text {
+                                Layout.fillWidth: true
+                                text: updateBar.u.text || ""
+                                color: popup.c.text
+                                font.pointSize: 9
+                                wrapMode: Text.Wrap
+                            }
+                            Rectangle {
+                                visible: !!updateBar.u.action
+                                enabled: !updateBar.u.busy
+                                opacity: enabled ? 1 : 0.45
+                                implicitWidth: updateText.implicitWidth + 24
+                                implicitHeight: 28
+                                radius: 8
+                                color: updateMouse.containsMouse ? popup.c.track : "transparent"
+                                border.color: popup.c.border
+                                Text { id: updateText; anchors.centerIn: parent; text: updateBar.u.action || ""; color: popup.c.text; font.pointSize: 9 }
+                                MouseArea {
+                                    id: updateMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: backend.installUpdate()
+                                }
+                                Accessible.role: Accessible.Button
+                                Accessible.name: updateText.text
+                                Accessible.onPressAction: if (enabled) backend.installUpdate()
+                            }
+                        }
+                    }
+
                     Text {
                         visible: popup.page === "limits" && (!popup.v || popup.v.limits.length === 0)
                         Layout.fillWidth: true
