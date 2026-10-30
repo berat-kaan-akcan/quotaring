@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-30
+
 ### Added
 - Updates: a newer GitHub release shows a banner in the popup and an item in the tray menu.
   *Update* downloads it, checks it against the release's SHA256SUMS.txt, installs it and starts
@@ -88,5 +90,6 @@ First public release.
 - Packages: Linux tarball, `.deb` and AppImage (built on Ubuntu 22.04), Arch `PKGBUILD`,
   Windows per-user installer and zip.
 
-[Unreleased]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/berat-kaan-akcan/quotaring/releases/tag/v0.2.0
 [0.1.0]: https://github.com/berat-kaan-akcan/quotaring/releases/tag/v0.1.0
