@@ -143,7 +143,7 @@ the Tokens page shows their date. Models without a known price are left out of t
 |---|---|---|
 | **Claude Code** | `~/.claude/projects/**/*.jsonl` (`$CLAUDE_CONFIG_DIR` if set; last 35 days, exact counts per API response, deduplicated) | 5-hour and weekly limits, plus per-model weekly caps, via the `claude` CLI's `get_usage` control request (**experimental and undocumented**; verified with Claude Code 2.1.312). Rejected-request `quotaLimits` entries in local logs also mark a hit limit immediately until its reset. |
 | **Codex** | `~/.codex/sessions` and `archived_sessions` rollout logs (`$CODEX_HOME` if set; last 35 days) | ChatGPT-plan limits via `codex app-server` → `account/rateLimits/read` (documented). API-key accounts show *No plan limits for this account*. **Not yet tested on a real Codex install.** |
-| **Antigravity** | `~/.gemini/antigravity{,-ide,-cli}/conversations/*.db` (token counts per model response; internal format, opened read-only) | While Antigravity runs (Linux and macOS): the *View Usage* groups — Gemini, and Claude and GPT, with 5-hour and weekly limits; Gemini 4 Argon, weekly — from its local language server. Otherwise, and on Windows, per-model limits from the Antigravity IDE's cached account status (marked stale with its age after 6 h). Both undocumented. Covers the `agy` CLI too. |
+| **Antigravity** | `~/.gemini/antigravity{,-ide,-cli}/conversations/*.db` (token counts per model response; internal format, opened read-only) | While Antigravity runs: the *View Usage* groups — Gemini, and Claude and GPT, with 5-hour and weekly limits; Gemini 4 Argon, weekly — from its local language server. Otherwise, per-model limits from the Antigravity IDE's cached account status (marked stale with its age after 6 h). Both undocumented. Covers the `agy` CLI too. |
 
 The weekly Claude limit is account-wide and includes claude.ai chats, which local Claude Code logs
 do not contain.
@@ -183,7 +183,7 @@ time; it is rebuilt.
     - Antigravity's own language server on 127.0.0.1 (`agy --hub`; port and CSRF token from its
       command line), asked `RetrieveUserQuotaSummary` and, for model names only, `GetUserStatus`.
       Only processes owned by the current user are considered, so another user cannot feed it
-      made-up limits. When Antigravity is not running (or on Windows), its IDE `state.vscdb` is
+      made-up limits. When Antigravity is not running, its IDE `state.vscdb` is
       queried read-only for the single `antigravityUnifiedStateSync.userStatus` key, decoding only
       model quota fractions, reset timestamps and plan tier (never OAuth tokens, name or email).
 - The only requests to the internet are the two public price lists for the cost estimate, at
@@ -219,7 +219,7 @@ time; it is rebuilt.
 | Claude/Codex card says "No limit data" (or is missing) though the CLI is installed | Set its full path under Settings → Advanced (GUI sessions may not have `~/.local/bin` on `PATH`). The widget also looks in `~/.local/share/claude/versions/` for the native installer, and honours `$CLAUDE_CONFIG_DIR` / `$CODEX_HOME`. |
 | Card says "Not signed in · run … login" | Run `claude` or `codex login` once in a terminal. |
 | Card says "No plan limits for this account" | API-key account (no subscription limits) or a CLI version without the query. |
-| Antigravity shows one value per model, dimmed with "updated … ago" | Antigravity isn't running (or this is Windows): the IDE's cached status is shown. Open Antigravity to get live limits. |
+| Antigravity shows one value per model, dimmed with "updated … ago" | Antigravity isn't running: the IDE's cached status is shown. Open Antigravity to get live limits. |
 | Numbers look old or dimmed with "updated … ago" | Press ⟳. Dimmed values mean the last refresh failed and the previous reading is kept visible. |
 | Want to inspect raw output | `python -m quotaring --print` |
 | "already running" but no window | It is in the tray: click the icon. A lock left by a crashed run is taken over automatically. |

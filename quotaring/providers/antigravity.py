@@ -226,7 +226,7 @@ def _server_args(argv: list[str]) -> tuple[int, str] | None:
 
 
 def running_servers() -> list[tuple[int, str]]:
-    """This user's Antigravity language servers that accept quota requests (Linux and macOS)."""
+    """This user's Antigravity language servers that accept quota requests."""
     return [s for s in map(_server_args, own_cmdlines()) if s]
 
 
@@ -250,7 +250,75 @@ def own_cmdlines() -> list[list[str]]:
         except (OSError, subprocess.SubprocessError):
             return []
         cmdlines = [line.split() for line in out.splitlines()]
+    elif sys.platform == "win32":
+        cmdlines = _win_cmdlines()
     return cmdlines
+
+
+def _win_cmdlines() -> list[list[str]]:
+    """Windows: command lines of this user's `agy` / `language_server` processes. Others are only
+    named (their image path), never opened further."""
+    import ctypes
+    from ctypes import wintypes as wt
+    k32, adv, nt, sh = ctypes.WinDLL("kernel32"), ctypes.WinDLL("advapi32"), ctypes.WinDLL("ntdll"), ctypes.WinDLL("shell32")
+    k32.OpenProcess.restype = wt.HANDLE
+    k32.GetCurrentProcess.restype = wt.HANDLE
+    sh.CommandLineToArgvW.restype = ctypes.POINTER(wt.LPWSTR)
+    k32.LocalFree.argtypes = [ctypes.c_void_p]
+    k32.CloseHandle.argtypes = [wt.HANDLE]
+    k32.QueryFullProcessImageNameW.argtypes = [wt.HANDLE, wt.DWORD, wt.LPWSTR, ctypes.POINTER(wt.DWORD)]
+    adv.OpenProcessToken.argtypes = [wt.HANDLE, wt.DWORD, ctypes.POINTER(wt.HANDLE)]
+    adv.GetTokenInformation.argtypes = [wt.HANDLE, ctypes.c_int, ctypes.c_void_p, wt.DWORD, ctypes.POINTER(wt.DWORD)]
+    adv.GetLengthSid.argtypes = [ctypes.c_void_p]
+    nt.NtQueryInformationProcess.argtypes = [wt.HANDLE, ctypes.c_int, ctypes.c_void_p, wt.ULONG, ctypes.POINTER(wt.ULONG)]
+    nt.NtQueryInformationProcess.restype = ctypes.c_long
+    sh.CommandLineToArgvW.argtypes = [wt.LPCWSTR, ctypes.POINTER(ctypes.c_int)]
+    query_limited, token_query, token_user, cmdline_info = 0x1000, 0x0008, 1, 60
+
+    def user_sid(proc) -> bytes | None:
+        tok = wt.HANDLE()
+        if not adv.OpenProcessToken(proc, token_query, ctypes.byref(tok)):
+            return None
+        try:
+            buf, n = ctypes.create_string_buffer(256), wt.DWORD()
+            if not adv.GetTokenInformation(tok, token_user, buf, 256, ctypes.byref(n)):
+                return None
+            sid = ctypes.c_void_p.from_buffer(buf).value  # TOKEN_USER.User.Sid
+            return ctypes.string_at(sid, adv.GetLengthSid(ctypes.c_void_p(sid)))
+        finally:
+            k32.CloseHandle(tok)
+
+    me = user_sid(k32.GetCurrentProcess())
+    pids = (wt.DWORD * 4096)()
+    got = wt.DWORD()
+    if me is None or not ctypes.WinDLL("psapi").EnumProcesses(pids, ctypes.sizeof(pids), ctypes.byref(got)):
+        return []
+    out: list[list[str]] = []
+    for pid in pids[:got.value // ctypes.sizeof(wt.DWORD)]:
+        h = k32.OpenProcess(query_limited, False, pid)
+        if not h:
+            continue
+        try:
+            name, n = ctypes.create_unicode_buffer(1024), wt.DWORD(1024)
+            if not k32.QueryFullProcessImageNameW(h, 0, name, ctypes.byref(n)):
+                continue
+            if not re.match(r"(agy|language_server)", os.path.basename(name.value), re.I) or user_sid(h) != me:
+                continue
+            size = wt.ULONG()
+            nt.NtQueryInformationProcess(h, cmdline_info, None, 0, ctypes.byref(size))
+            buf = ctypes.create_string_buffer(max(size.value, 16))
+            if nt.NtQueryInformationProcess(h, cmdline_info, buf, len(buf), ctypes.byref(size)) != 0:
+                continue
+            length = ctypes.c_ushort.from_buffer(buf).value  # UNICODE_STRING.Length, in bytes
+            text = ctypes.wstring_at(ctypes.c_void_p.from_buffer(buf, ctypes.sizeof(ctypes.c_void_p)).value, length // 2)
+            argc = ctypes.c_int()
+            argv = sh.CommandLineToArgvW(text, ctypes.byref(argc))
+            if argv:
+                out.append([argv[i] for i in range(argc.value)])
+                k32.LocalFree(argv)
+        finally:
+            k32.CloseHandle(h)
+    return out
 
 
 def fetch(port: int, token: str, path: str) -> dict:

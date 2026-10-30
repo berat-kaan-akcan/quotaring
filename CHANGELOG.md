@@ -19,6 +19,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Notification settings of their own: several warning levels, limit full, limit reset (off by
   default), per provider, and a test button; the tray menu turns them off or mutes them for an
   hour or until tomorrow. Older single-threshold settings carry over.
+- Antigravity's live limits (its *View Usage* groups) on Windows too, from its running language
+  server; the IDE's cached status remains the fallback.
 - Windows 11: the tray icon is shown next to the clock on first run instead of under the
   overflow arrow; hiding it again in Windows settings is respected.
 - Larger, sharper tray number: a thinner ring and pixel-drawn digits at the small tray sizes
