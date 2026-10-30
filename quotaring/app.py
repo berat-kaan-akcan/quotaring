@@ -78,29 +78,29 @@ _DIGITS_5x9 = {
     "8": ".###.|##.##|##.##|##.##|.###.|##.##|##.##|##.##|.###.",
     "9": ".###.|##.##|##.##|##.##|.####|...##|...##|...##|.###.",
 }
-_DIGITS_6x11 = {
-    "0": ".####.|##..##|##..##|##..##|##..##|##..##|##..##|##..##|##..##|##..##|.####.",
-    "1": "..##..|.###..|..##..|..##..|..##..|..##..|..##..|..##..|..##..|..##..|..##..",
-    "2": ".####.|##..##|....##|....##|...##.|..##..|.##...|##....|##....|##....|######",
-    "3": ".####.|##..##|....##|....##|....##|..###.|....##|....##|....##|##..##|.####.",
-    "4": "....##|...###|..####|.##.##|##..##|##..##|######|....##|....##|....##|....##",
-    "5": "######|##....|##....|##....|#####.|....##|....##|....##|....##|##..##|.####.",
-    "6": ".####.|##....|##....|##....|#####.|##..##|##..##|##..##|##..##|##..##|.####.",
-    "7": "######|....##|....##|....##|...##.|...##.|..##..|..##..|..##..|..##..|..##..",
-    "8": ".####.|##..##|##..##|##..##|##..##|.####.|##..##|##..##|##..##|##..##|.####.",
-    "9": ".####.|##..##|##..##|##..##|##..##|.#####|....##|....##|....##|....##|.####.",
+_DIGITS_3x7 = {
+    "0": "###|#.#|#.#|#.#|#.#|#.#|###",
+    "1": ".#|##|.#|.#|.#|.#|.#",
+    "2": "###|..#|..#|###|#..|#..|###",
+    "3": "###|..#|..#|###|..#|..#|###",
+    "4": "#.#|#.#|#.#|###|..#|..#|..#",
+    "5": "###|#..|#..|###|..#|..#|###",
+    "6": "###|#..|#..|###|#.#|#.#|###",
+    "7": "###|..#|..#|.#.|.#.|.#.|.#.",
+    "8": "###|#.#|#.#|###|#.#|#.#|###",
+    "9": "###|#.#|#.#|###|..#|..#|###",
 }
-_DIGITS_100_SMALL = {"0": "###|#.#|#.#|#.#|#.#|#.#|###", "1": ".#|##|.#|.#|.#|.#|.#"}
 _DIGITS_100 = {**_DIGITS_5x9, "1": ".##|###|.##|.##|.##|.##|.##|.##|.##"}
-# Icon size -> (glyphs for up to two digits, glyphs for three, scale). Larger sizes draw the font.
+# Icon size -> ((glyphs, scale) for up to two digits, (glyphs, scale) for three). Larger sizes draw
+# the font. The digits keep a gap to the ring, so the ring reads as one at a glance.
 _PIXEL_DIGITS = {
-    16: (_DIGITS_5x9, _DIGITS_100_SMALL, 1),
-    20: (_DIGITS_6x11, _DIGITS_100, 1),
-    22: (_DIGITS_6x11, _DIGITS_100, 1),
-    24: (_DIGITS_6x11, _DIGITS_100, 1),
-    30: (_DIGITS_5x9, _DIGITS_100_SMALL, 2),
-    32: (_DIGITS_5x9, _DIGITS_100_SMALL, 2),
-    40: (_DIGITS_6x11, _DIGITS_100, 2),
+    16: ((_DIGITS_3x7, 1), (_DIGITS_3x7, 1)),
+    20: ((_DIGITS_5x9, 1), (_DIGITS_3x7, 1)),
+    22: ((_DIGITS_5x9, 1), (_DIGITS_3x7, 1)),
+    24: ((_DIGITS_5x9, 1), (_DIGITS_3x7, 1)),
+    30: ((_DIGITS_3x7, 2), (_DIGITS_100, 1)),
+    32: ((_DIGITS_3x7, 2), (_DIGITS_100, 1)),
+    40: ((_DIGITS_5x9, 2), (_DIGITS_3x7, 2)),
 }
 
 
@@ -108,8 +108,7 @@ def _pixel_digits(text: str, size: int) -> tuple[list[list[str]], int] | None:
     """The text's hand-drawn glyph rows and their scale at this icon size, or None to draw the font."""
     if size not in _PIXEL_DIGITS or len(text) > 3:
         return None
-    short, long, scale = _PIXEL_DIGITS[size]
-    table = short if len(text) <= 2 else long
+    table, scale = _PIXEL_DIGITS[size][len(text) > 2]
     if any(c not in table for c in text):
         return None
     return [table[c].split("|") for c in text], scale
@@ -128,7 +127,7 @@ def make_ring_icon(ring: dict, show_remaining: bool, p: theme.Palette) -> QIcon:
         pm.fill(QColor(0, 0, 0, 0))
         painter = QPainter(pm)
         painter.setRenderHint(QPainter.Antialiasing)
-        lw = max(1.5, size * 0.08)  # a thin ring leaves the digits more room
+        lw = max(2.0, size * 0.13)  # thick enough to read as a ring beside the number
         rect = QRectF(lw / 2, lw / 2, size - lw, size - lw)
         painter.setPen(QPen(track, lw))
         painter.drawEllipse(rect)
@@ -152,13 +151,13 @@ def make_ring_icon(ring: dict, show_remaining: bool, p: theme.Palette) -> QIcon:
             painter.end()
             icon.addPixmap(pm)
             continue
-        # The number as large as the inside of the ring allows: tray icons are tiny.
+        # The number large, with a gap to the ring.
         font = _tray_font()
         px = round(inner * 1.3)
         while True:
             font.setPixelSize(px)
             ink = QFontMetricsF(font).tightBoundingRect(text)
-            if px <= 6 or (ink.width() <= inner * 0.98 and ink.height() <= inner * 0.84):
+            if px <= 6 or (ink.width() <= inner * 0.8 and ink.height() <= inner * 0.66):
                 break
             px -= 1
         painter.setFont(font)
