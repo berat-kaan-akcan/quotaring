@@ -10,7 +10,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Property, QObject, QRect, QTimer, QUrl, Signal, Slot, qVersion
 from PySide6.QtGui import QCursor, QGuiApplication
-from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQml import QJSValue, QQmlApplicationEngine
 
 from .. import paths
 from .theme import Palette
@@ -172,6 +172,8 @@ class Backend(QObject):
     @Slot("QVariant")
     def setCardOrder(self, order):
         """The provider cards as the user arranged them (by dragging)."""
+        if isinstance(order, QJSValue):  # PySide6 before 6.12 passes the JS array unconverted
+            order = order.toVariant()
         self.settings.card_order = list(order or [])
         self.settings.clamp()
         self.prefsChanged.emit()

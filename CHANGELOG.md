@@ -41,6 +41,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The same quota notification no longer repeats on every poll: providers report the reset time
   with a little jitter, and each new value counted as a new limit window.
 - The provider card order is now really restored after a restart.
+- Dragged card order is saved with PySide6 older than 6.12 too (Python < 3.12), which handed
+  the new order over as a JavaScript value instead of a list.
 - Hovering a ring showed an empty box instead of its tooltip. Tooltips now each have their own
   instance and use the popup's colours.
 
