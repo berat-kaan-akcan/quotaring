@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+- The popup stays where it opened: changing page, provider chip or period, opening Details or
+  Settings, or the update banner appearing no longer moves it towards the pointer (Windows,
+  X11, XWayland).
+- On several screens the popup's height is limited by the screen it opens on, and a tall page
+  can no longer push its top edge off the screen.
+
 ## [0.2.1] - 2026-10-30
 
 ### Changed

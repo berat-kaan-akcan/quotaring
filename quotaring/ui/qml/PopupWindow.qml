@@ -9,7 +9,10 @@ Window {
     width: 400
     // Grows with the page up to a comfortable height (or the screen's); taller pages scroll.
     readonly property int maxHeight: 660
-    height: Math.min(content.implicitHeight, maxHeight, Screen.desktopAvailableHeight - 24)
+    // The free height of the screen it opens on; Python sets it when placing the popup (the
+    // desktop's height is only a fallback: on several screens it is not this screen's).
+    property int screenHeight: Screen.desktopAvailableHeight - 24
+    height: Math.min(content.implicitHeight, maxHeight, screenHeight)
     title: backend.view ? backend.view.labels.title : "QuotaRing"
     color: "transparent"
     flags: docked ? (Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint) : Qt.Window

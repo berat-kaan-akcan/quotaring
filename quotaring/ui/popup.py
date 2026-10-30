@@ -244,6 +244,7 @@ class Popup:
         self.window = self.engine.rootObjects()[-1]
         self._hidden_at = 0.0
         self._shown_at = 0.0
+        self._anchor = None  # where the tray was clicked; the popup keeps to it while open
         backend.focusLostRequested.connect(self.focus_lost)
         # Layer-shell: open above the clicked tray icon, located through KWin (see cursor_probe).
         self.probe = None
@@ -278,6 +279,7 @@ class Popup:
 
     def show(self):
         if self.docked and not self.layer:
+            self._anchor = QCursor.pos()
             self._place()
         self._shown_at = time.monotonic()
         self.window.show()
@@ -315,12 +317,15 @@ class Popup:
     def _place(self):
         """Above the clicked icon: centred on the cursor, inside the screen, by the panel.
 
-        X11, Windows and XWayland, where the cursor position and window placement are available."""
-        cursor = QCursor.pos()
+        X11, Windows and XWayland, where the cursor position and window placement are available.
+        The cursor is read when the popup opens: when a page change resizes it later, the pointer
+        is somewhere inside it, and following it would move the popup under the click."""
+        cursor = self._anchor or QCursor.pos()
         screen = QGuiApplication.screenAt(cursor) or QGuiApplication.primaryScreen()
         if screen is None:
             return
         a = screen.availableGeometry()
+        self.window.setProperty("screenHeight", a.height() - 3 * MARGIN)
         w, h = self.window.width(), self.window.height()
-        y = a.top() + MARGIN if panel_at_top(screen) else a.bottom() - h - MARGIN
+        y = a.top() + MARGIN if panel_at_top(screen) else max(a.top() + MARGIN, a.bottom() - h - MARGIN)
         self.window.setPosition(centered_left(cursor.x(), w, a.x(), a.width()), y)

@@ -133,6 +133,93 @@ def test_focus_loss_right_after_show_keeps_popup(app, settings):
     assert not popup.is_visible()
 
 
+def test_popup_stays_put_when_its_page_changes_size(app, settings, monkeypatch):
+    """Clicks inside the popup (a chip, Details) resize it; it must not follow the pointer there."""
+    from PySide6.QtCore import QPoint
+    from quotaring.ui import popup as popup_mod
+    screen = app.primaryScreen().availableGeometry()
+    pointer = {"pos": QPoint(screen.right() - 150, screen.bottom() - 4)}  # the tray icon
+    monkeypatch.setattr(popup_mod.QCursor, "pos", staticmethod(lambda: pointer["pos"]))
+    _backend, popup = popup_for(settings, docked=True)
+    popup.show()
+    settle(app)
+    where = (popup.window.x(), popup.window.y() + popup.window.height())
+    for x, height in ((screen.right() - 330, 500), (screen.right() - 30, 620)):
+        pointer["pos"] = QPoint(x, screen.bottom() - 300)  # inside the popup
+        popup.window.setHeight(height)
+        settle(app)
+        assert (popup.window.x(), popup.window.y() + popup.window.height()) == where
+    popup.hide()
+    pointer["pos"] = QPoint(screen.left() + 300, screen.bottom() - 4)  # opened again elsewhere
+    popup._hidden_at -= 1
+    popup.show()
+    settle(app)
+    assert popup.window.x() == popup_mod.centered_left(screen.left() + 300, popup.window.width(),
+                                                       screen.x(), screen.width())
+
+
+@pytest.mark.parametrize("panel", ["bottom", "top"])
+def test_popup_keeps_its_place_on_every_screen(app, settings, qml_errors, monkeypatch, panel):
+    """Every page, chip, period, settings state, the update banner and new data: the popup keeps
+    its side and its edge by the panel, and never leaves the screen."""
+    from PySide6.QtCore import QPoint
+    from quotaring.ui import popup as popup_mod
+    from quotaring.ui import settings_form
+    monkeypatch.setattr(popup_mod, "panel_at_top", lambda _screen: panel == "top")
+    screen = app.primaryScreen().availableGeometry()
+    pointer = {"pos": QPoint(screen.right() - 120, screen.bottom() - 4 if panel == "bottom" else screen.top() + 4)}
+    monkeypatch.setattr(popup_mod.QCursor, "pos", staticmethod(lambda: pointer["pos"]))
+    codex = snap(State.OK, State.OK)
+    codex.provider_id, codex.name = "codex", "Codex"
+    snaps = [snap(State.OK, State.OK), codex]
+    backend, popup = popup_for(settings, docked=True)
+    backend.set_view(viewmodel.widget_view(snaps, NOW))
+    backend.set_settings_form(settings_form.form(settings, True))
+    popup.show()
+    settle(app)
+    content, win = popup.content(), popup.window
+
+    def edge():  # the side by the panel stays put
+        return win.y() + win.height() if panel == "bottom" else win.y()
+
+    where, heights = (win.x(), edge()), set()
+
+    def check(step):
+        settle(app, 6)
+        pointer["pos"] = QPoint(win.x() + 30 + len(heights) * 37 % 340, win.y() + 40)  # clicks land inside
+        settle(app, 2)
+        heights.add(win.height())
+        assert (win.x(), edge()) == where, step
+        assert screen.top() <= win.y() and win.y() + win.height() <= screen.bottom() + 1, step
+
+    check("limits")
+    backend.set_update({"text": "QuotaRing 9.9 is available", "action": "Update", "busy": False})
+    check("update banner")
+    backend.set_update({})
+    check("banner gone")
+    content.setProperty("page", "tokens")
+    check("tokens")
+    for group in ("claude", "codex", "all"):
+        for period in ("today", "5h", "7d", "30d", "all"):
+            content.setProperty("tokGroup", group)
+            content.setProperty("tokPeriod", period)
+            check(f"tokens {group} {period}")
+    content.setProperty("page", "settings")
+    check("settings")
+    for enabled in (False, True):  # the notification section folds away when it is off
+        settings.notify_enabled = enabled
+        backend.set_settings_form(settings_form.form(settings, True))
+        check(f"notifications {enabled}")
+    content.setProperty("page", "limits")
+    check("back to limits")
+    backend.set_view(viewmodel.widget_view(snaps[:1], NOW))  # a provider went away: fewer cards
+    check("one card")
+    backend.set_view(viewmodel.widget_view([], NOW))
+    check("no data")
+    assert len(heights) > 2  # the pages really had different heights
+    assert qml_errors == []
+
+
 def test_ring_icon_draws(app):
     from quotaring.app import make_ring_icon
     for ring in (viewmodel.ring([snap(State.OK, State.OK)], NOW),
