@@ -2,7 +2,7 @@
 # Build:  ./packaging/arch/build.sh      (creates the source tarball, then runs makepkg)
 # Maintainer: Berat Kaan Akcan <beratkaanakcan@gmail.com>
 pkgname=quotaring
-pkgver=0.2.0
+pkgver=0.2.1
 pkgrel=1
 pkgdesc="Desktop widget for Claude Code, Codex and Antigravity usage"
 arch=('any')

@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-30
+
+### Changed
+- README: how in-app updates work for each kind of install, the *Check for updates* setting,
+  and the GitHub release check listed under Privacy. The first release that 0.2.0 can update
+  to from inside the app.
+
 ## [0.2.0] - 2026-10-30
 
 ### Added
@@ -90,6 +97,7 @@ First public release.
 - Packages: Linux tarball, `.deb` and AppImage (built on Ubuntu 22.04), Arch `PKGBUILD`,
   Windows per-user installer and zip.
 
-[Unreleased]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/berat-kaan-akcan/quotaring/releases/tag/v0.2.0
 [0.1.0]: https://github.com/berat-kaan-akcan/quotaring/releases/tag/v0.1.0
