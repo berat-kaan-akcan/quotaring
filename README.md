@@ -44,7 +44,9 @@
   </tr>
 </table>
 
-[**Download**](#download) · [What is supported](#what-is-supported) · [Privacy](#privacy-and-security) · [Build from source](#build-from-source)
+**⬇ Download:** [**Windows**](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-setup.exe) · [**Ubuntu / Debian (.deb)**](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring_amd64.deb) · [**Linux AppImage**](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-x86_64.AppImage) · [one-line install](#download)
+
+[What is supported](#what-is-supported) · [Privacy](#privacy-and-security) · [Build from source](#build-from-source)
 
 </div>
 
@@ -67,22 +69,54 @@
 
 ## Download
 
-Get the latest build from the [Releases page](https://github.com/berat-kaan-akcan/quotaring/releases/latest):
+### Windows 10/11
 
-| System | File | Install |
+**[⬇ Download QuotaRing for Windows](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-setup.exe)** (`quotaring-setup.exe`), then
+open it. It installs for your user only, with no admin rights, and adds a Start menu entry.
+
+Or install it from PowerShell with one command (downloads, checks the checksum, installs, starts):
+
+```powershell
+irm https://raw.githubusercontent.com/berat-kaan-akcan/quotaring/main/install.ps1 | iex
+```
+
+### Linux (x86_64)
+
+Open a terminal and paste:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/berat-kaan-akcan/quotaring/main/install.sh | sh
+```
+
+On Debian and Ubuntu this installs the `.deb` with apt, which asks for your `sudo` password. On
+other distributions (Fedora, Arch, openSUSE…) it puts the AppImage in `~/.local/bin` and adds a menu
+entry, without root. To get the AppImage on Debian or Ubuntu too:
+`curl -fsSL https://raw.githubusercontent.com/berat-kaan-akcan/quotaring/main/install.sh | QUOTARING_APPIMAGE=1 sh`
+
+### Or download a file yourself
+
+Each link downloads the newest version directly:
+
+| System | Download | Then |
 |---|---|---|
-| Ubuntu 22.04+ / Debian 12+ | `quotaring_<ver>~ubuntu22.04_amd64.deb` | `sudo apt install ./quotaring_*.deb` |
-| Any Linux (x86_64) | `quotaring-<ver>-x86_64.AppImage` | `chmod +x quotaring-*.AppImage` and run it |
-| Any Linux (x86_64), portable | `quotaring-<ver>-linux-x86_64-ubuntu22.04.tar.gz` | extract, run `quotaring/quotaring` |
-| Windows 10/11 | `quotaring-<ver>-setup.exe` | per-user install, no admin rights |
-| Windows, portable | `quotaring-<ver>-windows-x64.zip` | extract, run `quotaring.exe` |
+| Windows 10/11 | [quotaring-setup.exe](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-setup.exe) | open it |
+| Windows, portable | [quotaring-windows-x64.zip](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-windows-x64.zip) | extract, run `quotaring.exe` |
+| Ubuntu 22.04+ / Debian 12+ | [quotaring_amd64.deb](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring_amd64.deb) | `sudo apt install ./quotaring_amd64.deb` |
+| Any Linux | [quotaring-x86_64.AppImage](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-x86_64.AppImage) | `chmod +x quotaring-x86_64.AppImage`, then run it |
+| Any Linux, portable | [quotaring-linux-x86_64.tar.gz](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-linux-x86_64.tar.gz) | extract, run `quotaring/quotaring` |
 
-`SHA256SUMS.txt` on each release lists the file checksums. On Arch / CachyOS, you can also build
-a native pacman package with `./packaging/arch/build.sh -s` (see [Linux packages](#linux-packages)).
+[SHA256SUMS.txt](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/SHA256SUMS.txt) lists the checksums; older versions are on the
+[Releases page](https://github.com/berat-kaan-akcan/quotaring/releases). On Arch / CachyOS you can
+also build a native pacman package with `./packaging/arch/build.sh -s` (see
+[Linux packages](#linux-packages)). Once installed, QuotaRing [updates itself](#using-it).
+
+**Uninstall:** Windows: *Settings → Apps → QuotaRing*. Debian/Ubuntu: `sudo apt remove quotaring`.
+AppImage: `rm ~/.local/bin/quotaring.AppImage ~/.local/share/applications/quotaring.desktop`.
 
 > [!NOTE]
-> The Windows builds are not code-signed, so SmartScreen may show "Windows protected your PC".
-> Choose **More info → Run anyway**, or build it yourself (see below).
+> The Windows builds are not code-signed, so SmartScreen may show "Windows protected your PC"
+> when you open the downloaded file. Choose **More info → Run anyway**, or use the PowerShell
+> command above, or build it yourself (see below).
 
 > [!IMPORTANT]
 > **GNOME has no tray of its own.** QuotaRing needs the *AppIndicator and KStatusNotifierItem

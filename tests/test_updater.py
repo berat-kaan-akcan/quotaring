@@ -101,6 +101,14 @@ def test_pick_asset():
     assert not updater.can_install(r, "deb")  # nothing to verify against
 
 
+def test_pick_asset_with_stable_names():
+    # From 0.2.2 on, releases name files without the version (README links to latest/download).
+    names = ["quotaring-setup.exe", "quotaring-windows-x64.zip", "quotaring-x86_64.AppImage",
+             "quotaring_amd64.deb", "quotaring-linux-x86_64.tar.gz", "SHA256SUMS.txt"]
+    r = Release("0.2.2", assets={n: "https://dl/" + n for n in names})
+    assert [updater.pick_asset(r, k) for k in updater.AUTO_KINDS] == names[:5]
+
+
 def test_parse_sums():
     h = "a" * 64
     assert updater.parse_sums(f"{h}  one.zip\n{h.upper()} *two.exe\nnot a line\n") == {"one.zip": h, "two.exe": h}

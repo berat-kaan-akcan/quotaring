@@ -63,6 +63,18 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      # Names without the version, so releases/latest/download/<name> always gets the newest
+      # (the README links there). The in-app updater picks files by these endings too.
+      - name: Stable file names
+        run: |
+          cd dist
+          V=${{ needs.check-version.outputs.version }}
+          mv "quotaring-$V-setup.exe" quotaring-setup.exe
+          mv "quotaring-$V-windows-x64.zip" quotaring-windows-x64.zip
+          mv "quotaring-$V-x86_64.AppImage" quotaring-x86_64.AppImage
+          mv quotaring_"$V"*_amd64.deb quotaring_amd64.deb
+          mv "quotaring-$V-linux-x86_64-ubuntu22.04.tar.gz" quotaring-linux-x86_64.tar.gz
+          ls -l
       - name: Checksums
         run: cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
       - name: Release notes from CHANGELOG.md

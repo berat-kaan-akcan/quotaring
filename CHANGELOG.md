@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- One-line installs: `curl -fsSL …/install.sh | sh` on Linux (the .deb through apt on
+  Debian/Ubuntu, else the AppImage in ~/.local/bin with a menu entry) and
+  `irm …/install.ps1 | iex` on Windows; both check the release's SHA256SUMS.txt.
+- Release files have fixed names (`quotaring-setup.exe`, `quotaring_amd64.deb`, …), so the
+  README's download links always fetch the newest version with one click.
+
 ### Fixed
 - The popup stays where it opened: changing page, provider chip or period, opening Details or
   Settings, or the update banner appearing no longer moves it towards the pointer (Windows,
