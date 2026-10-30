@@ -26,6 +26,22 @@ Item {
         const saved = (backend.prefs.order || []).filter(id => ids.indexOf(id) >= 0);
         return dragOrder || saved.concat(ids.filter(id => saved.indexOf(id) < 0));
     }
+    // Two columns, each card under the shorter one, so a tall card leaves no gap beside it.
+    readonly property var masonry: {
+        const h = {};
+        for (let i = 0; i < cards.count; i++) {
+            const it = cards.itemAt(i);
+            if (it) h[it.modelData.id] = it.implicitHeight;
+        }
+        const tops = [0, 0], pos = {};
+        for (const id of cardOrder) {
+            if (!(id in h)) continue;
+            const col = tops[1] < tops[0] ? 1 : 0;
+            pos[id] = { col: col, y: tops[col] };
+            tops[col] += h[id] + 10;
+        }
+        return { pos: pos, height: Math.max(0, Math.max(tops[0], tops[1]) - 10) };
+    }
     function moveCard(id, to) {
         const o = cardOrder.filter(x => x !== id);
         o.splice(to, 0, id);
@@ -144,13 +160,13 @@ Item {
                         text: !popup.v ? (Qt.locale().name.startsWith("tr") ? "Yükleniyor…" : "Loading…") : popup.v.text.noLimits
                     }
 
-                    GridLayout {
+                    Item {
                         id: grid
                         visible: popup.page === "limits"
                         Layout.fillWidth: true
-                        columns: 2
-                        columnSpacing: 10
-                        rowSpacing: 10
+                        implicitHeight: popup.masonry.height
+                        // One card takes the whole width.
+                        readonly property real colW: cards.count > 1 ? (width - 10) / 2 : width
                         Repeater {
                             id: cards
                             model: popup.v ? popup.v.limits : []
@@ -327,11 +343,11 @@ Item {
             popup.dragOrder = null;
         }
 
-        Layout.row: Math.floor(slot / 2)
-        Layout.column: slot % 2
-        Layout.fillWidth: true
-        Layout.preferredWidth: 1  // equal columns
-        Layout.alignment: Qt.AlignTop
+        readonly property var place: popup.masonry.pos[modelData.id] || { col: 0, y: 0 }
+        x: place.col * (grid.colW + 10)
+        y: place.y
+        width: grid.colW
+        height: implicitHeight
         implicitHeight: col.implicitHeight + 24
         radius: 14
         color: popup.c.card
@@ -370,12 +386,13 @@ Item {
             onCentroidChanged: {
                 if (!card.dragging) return;
                 card.ptr = grid.mapFromItem(null, centroid.scenePosition.x, centroid.scenePosition.y);
-                // The card whose place is under the pointer (by layout, not by where the dragged
-                // card is drawn: it is always under the pointer itself).
+                // The card whose place is under the pointer (its place in the layout, not where it
+                // is drawn: the dragged card is always under the pointer, the others may still glide).
                 for (const other of grid.children) {
                     if (other === card || other.objectName !== "providerCard") continue;
-                    if (card.ptr.x >= other.x && card.ptr.x < other.x + other.width
-                            && card.ptr.y >= other.y && card.ptr.y < other.y + other.height) {
+                    const ox = other.place.col * (grid.colW + 10), oy = other.place.y;
+                    if (card.ptr.x >= ox && card.ptr.x < ox + grid.colW
+                            && card.ptr.y >= oy && card.ptr.y < oy + other.height) {
                         popup.moveCard(card.modelData.id, other.slot);
                         break;
                     }

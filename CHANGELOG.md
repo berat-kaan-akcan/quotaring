@@ -27,6 +27,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   instead of a blurred font.
 
 ### Fixed
+- Provider cards stack in two columns without gaps: a tall card no longer pushes the next one
+  to a new row.
 - The same quota notification no longer repeats on every poll: providers report the reset time
   with a little jitter, and each new value counted as a new limit window.
 - The provider card order is now really restored after a restart.
