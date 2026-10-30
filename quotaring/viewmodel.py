@@ -86,7 +86,9 @@ def limits_view(snaps, now: float) -> list[dict]:
     out = []
     for s in snaps:
         q, loc = s.quota, s.local
-        if q.state in (State.NOT_INSTALLED, State.DISABLED) and loc.state in (State.NOT_INSTALLED, State.DISABLED):
+        # No CLI to ask and nothing recorded (an old, empty data folder counts as nothing).
+        if q.state in (State.NOT_INSTALLED, State.DISABLED) and (
+                loc.state in (State.NOT_INSTALLED, State.DISABLED) or not any(n for _d, n in loc.daily)):
             continue
         item = {"id": s.provider_id, "name": s.name.replace(" Code", ""), "plan": q.plan or "",
                 "color": COLORS.get(s.provider_id, "#888888"),

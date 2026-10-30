@@ -46,6 +46,10 @@ def test_ring_ignores_windows_past_reset_and_unverified_quota():
 def test_states_hidden_stale_and_unavailable():
     i18n.set_language("en")
     assert viewmodel.limits_view([snap("codex", State.NOT_INSTALLED, State.NOT_INSTALLED)], NOW) == []
+    # A leftover data folder with no recent usage and no CLI: still nothing to show.
+    empty = ProviderSnapshot("codex", "Codex", LocalUsage(State.OK, daily=[["2026-10-30", 0]]), Quota(State.NOT_INSTALLED))
+    assert viewmodel.limits_view([empty], NOW) == []
+    assert viewmodel.limits_view([snap("codex", State.OK, State.NOT_INSTALLED)], NOW) != []  # used, CLI gone
     stale = viewmodel.limits_view([snap(quota=State.STALE)], NOW)[0]
     assert all(w["dim"] for w in stale["windows"]) and stale["note"].startswith("updated")
     unavailable = viewmodel.limits_view([snap(quota=State.UNAVAILABLE)], NOW)[0]
