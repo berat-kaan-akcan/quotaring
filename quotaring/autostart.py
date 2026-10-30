@@ -13,7 +13,8 @@ RUN_VALUE = "QuotaRing"
 
 def launch_command() -> list[str]:
     if getattr(sys, "frozen", False):
-        return [sys.executable]
+        # In an AppImage the executable sits in a mount that changes every run: start the file itself.
+        return [os.environ.get("APPIMAGE") or sys.executable]
     exe = sys.executable
     if sys.platform == "win32":
         pyw = Path(exe).with_name("pythonw.exe")

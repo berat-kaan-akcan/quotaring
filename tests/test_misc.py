@@ -93,6 +93,15 @@ def test_autostart_desktop_file(isolated_dirs):
     autostart.set_enabled(False)  # idempotent
 
 
+def test_autostart_starts_the_appimage_not_its_mount(monkeypatch):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", "/tmp/.mount_quotaXYZ/usr/bin/quotaring")
+    monkeypatch.delenv("APPIMAGE", raising=False)
+    assert autostart.launch_command() == ["/tmp/.mount_quotaXYZ/usr/bin/quotaring"]
+    monkeypatch.setenv("APPIMAGE", "/home/u/Apps/quotaring.AppImage")
+    assert autostart.launch_command() == ["/home/u/Apps/quotaring.AppImage"]
+
+
 def test_today_period_start_is_local_midnight():
     start = datetime.fromtimestamp(period_starts(NOW)["today"])
     assert (start.hour, start.minute, start.second) == (0, 0, 0)
