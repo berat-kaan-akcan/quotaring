@@ -8,9 +8,9 @@ import os
 import sys
 import time
 
-from PySide6.QtCore import QLockFile, QObject, QPoint, QPointF, QRectF, QRunnable, Qt, QThreadPool, QTimer, QUrl, Signal
+from PySide6.QtCore import QLockFile, QObject, QPoint, QPointF, QRect, QRectF, QRunnable, Qt, QThreadPool, QTimer, QUrl, Signal
 from PySide6.QtGui import (QAction, QColor, QDesktopServices, QFont, QFontDatabase, QFontMetricsF, QIcon, QPainter,
-                           QPen, QPixmap)
+                           QPainterPath, QPen, QPixmap)
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from . import __version__, alerts, autostart, paths, pricing, settings as settings_mod, traypin, updater, viewmodel
@@ -78,6 +78,18 @@ _DIGITS_5x9 = {
     "8": ".###.|##.##|##.##|##.##|.###.|##.##|##.##|##.##|.###.",
     "9": ".###.|##.##|##.##|##.##|.####|...##|...##|...##|.###.",
 }
+_DIGITS_6x11 = {
+    "0": ".####.|##..##|##..##|##..##|##..##|##..##|##..##|##..##|##..##|##..##|.####.",
+    "1": "..##..|.###..|..##..|..##..|..##..|..##..|..##..|..##..|..##..|..##..|..##..",
+    "2": ".####.|##..##|....##|....##|...##.|..##..|.##...|##....|##....|##....|######",
+    "3": ".####.|##..##|....##|....##|....##|..###.|....##|....##|....##|##..##|.####.",
+    "4": "....##|...###|..####|.##.##|##..##|##..##|######|....##|....##|....##|....##",
+    "5": "######|##....|##....|##....|#####.|....##|....##|....##|....##|##..##|.####.",
+    "6": ".####.|##....|##....|##....|#####.|##..##|##..##|##..##|##..##|##..##|.####.",
+    "7": "######|....##|....##|....##|...##.|...##.|..##..|..##..|..##..|..##..|..##..",
+    "8": ".####.|##..##|##..##|##..##|##..##|.####.|##..##|##..##|##..##|##..##|.####.",
+    "9": ".####.|##..##|##..##|##..##|##..##|.#####|....##|....##|....##|....##|.####.",
+}
 _DIGITS_3x7 = {
     "0": "###|#.#|#.#|#.#|#.#|#.#|###",
     "1": ".#|##|.#|.#|.#|.#|.#",
@@ -92,15 +104,15 @@ _DIGITS_3x7 = {
 }
 _DIGITS_100 = {**_DIGITS_5x9, "1": ".##|###|.##|.##|.##|.##|.##|.##|.##"}
 # Icon size -> ((glyphs, scale) for up to two digits, (glyphs, scale) for three). Larger sizes draw
-# the font. The digits keep a gap to the ring, so the ring reads as one at a glance.
+# the font. The digits are as large as the ring leaves room for, about a pixel inside it.
 _PIXEL_DIGITS = {
-    16: ((_DIGITS_3x7, 1), (_DIGITS_3x7, 1)),
-    20: ((_DIGITS_5x9, 1), (_DIGITS_3x7, 1)),
-    22: ((_DIGITS_5x9, 1), (_DIGITS_3x7, 1)),
-    24: ((_DIGITS_5x9, 1), (_DIGITS_3x7, 1)),
-    30: ((_DIGITS_3x7, 2), (_DIGITS_100, 1)),
-    32: ((_DIGITS_3x7, 2), (_DIGITS_100, 1)),
-    40: ((_DIGITS_5x9, 2), (_DIGITS_3x7, 2)),
+    16: ((_DIGITS_5x9, 1), (_DIGITS_3x7, 1)),
+    20: ((_DIGITS_6x11, 1), (_DIGITS_3x7, 1)),
+    22: ((_DIGITS_6x11, 1), (_DIGITS_3x7, 1)),
+    24: ((_DIGITS_6x11, 1), (_DIGITS_100, 1)),
+    30: ((_DIGITS_5x9, 2), (_DIGITS_3x7, 2)),
+    32: ((_DIGITS_5x9, 2), (_DIGITS_3x7, 2)),
+    40: ((_DIGITS_6x11, 2), (_DIGITS_3x7, 2)),
 }
 
 
@@ -127,7 +139,7 @@ def make_ring_icon(ring: dict, show_remaining: bool, p: theme.Palette) -> QIcon:
         pm.fill(QColor(0, 0, 0, 0))
         painter = QPainter(pm)
         painter.setRenderHint(QPainter.Antialiasing)
-        lw = max(2.0, size * 0.13)  # thick enough to read as a ring beside the number
+        lw = max(2.0, size * 0.11)  # thick enough to read as a ring beside the number
         rect = QRectF(lw / 2, lw / 2, size - lw, size - lw)
         painter.setPen(QPen(track, lw))
         painter.drawEllipse(rect)
@@ -142,28 +154,39 @@ def make_ring_icon(ring: dict, show_remaining: bool, p: theme.Palette) -> QIcon:
             glyphs, k = pixel
             w = (sum(len(g[0]) for g in glyphs) + len(glyphs) - 1) * k
             x, y = (size - w) // 2, (size - len(glyphs[0]) * k + 1) // 2
+            lit = []
             for g in glyphs:
                 for r, row in enumerate(g):
                     for c, ch in enumerate(row):
                         if ch == "#":
-                            painter.fillRect(x + c * k, y + r * k, k, k, color)
+                            lit.append(QRect(x + c * k, y + r * k, k, k))
                 x += (len(g[0]) + 1) * k
+            # The digits fill the ring, so their corners reach it: a gap is cut around them.
+            painter.setCompositionMode(QPainter.CompositionMode_Clear)
+            for px_rect in lit:
+                painter.fillRect(px_rect.adjusted(-1, -1, 1, 1), Qt.transparent)
+            painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+            for px_rect in lit:
+                painter.fillRect(px_rect, color)
             painter.end()
             icon.addPixmap(pm)
             continue
-        # The number large, with a gap to the ring.
+        # The number as large as the inside of the ring allows: tray icons are tiny.
         font = _tray_font()
         px = round(inner * 1.3)
         while True:
             font.setPixelSize(px)
             ink = QFontMetricsF(font).tightBoundingRect(text)
-            if px <= 6 or (ink.width() <= inner * 0.8 and ink.height() <= inner * 0.66):
+            if px <= 6 or (ink.width() <= inner * 0.92 and ink.height() <= inner * 0.78):
                 break
             px -= 1
-        painter.setFont(font)
-        painter.setPen(color)
         # Centred on the digits' ink, not the font's line box, so they sit in the ring's middle.
-        painter.drawText(QPointF((size - ink.width()) / 2 - ink.x(), (size - ink.height()) / 2 - ink.y()), text)
+        path = QPainterPath()
+        path.addText(QPointF((size - ink.width()) / 2 - ink.x(), (size - ink.height()) / 2 - ink.y()), font, text)
+        painter.setCompositionMode(QPainter.CompositionMode_Clear)
+        painter.strokePath(path, QPen(Qt.transparent, size / 24, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+        painter.fillPath(path, color)
         painter.end()
         icon.addPixmap(pm)
     return icon

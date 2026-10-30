@@ -7,8 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Changed
-- The tray icon's ring is thicker and its number smaller, with a gap between them, so the ring
-  reads at a glance instead of disappearing behind the digits.
+- The tray icon's ring is thicker and keeps a one-pixel gap around the number, so the number stays
+  as large as the icon allows and the ring still reads at a glance.
 
 ## [0.2.3] - 2026-10-30
 
