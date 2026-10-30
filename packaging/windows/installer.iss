@@ -22,6 +22,10 @@ UninstallDisplayIcon={app}\quotaring.exe
 Compression=lzma2
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible
+; A running QuotaRing is closed (Restart Manager) but not restarted from there: [Run] starts it, and
+; two copies starting at once could fail to load Qt ("file in use").
+CloseApplications=yes
+RestartApplications=no
 
 [Files]
 Source: "..\..\dist\quotaring\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion

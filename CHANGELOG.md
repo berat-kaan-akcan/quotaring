@@ -10,6 +10,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The tray icon's ring is thicker and keeps a one-pixel gap around the number, so the number stays
   as large as the icon allows and the ring still reads at a glance.
 
+### Fixed
+- After an install or update on Windows, QuotaRing could fail to start with "DLL load failed …
+  used by another process": the installer started it twice at once. It is started once now.
+
 ## [0.2.3] - 2026-10-30
 
 ### Fixed
