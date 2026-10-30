@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-30
+
 ### Fixed
 - When QuotaRing opens its popup by itself (first start after install, a click on a
   notification) it opens by the tray icon instead of wherever the pointer happens to be
@@ -120,7 +122,8 @@ First public release.
 - Packages: Linux tarball, `.deb` and AppImage (built on Ubuntu 22.04), Arch `PKGBUILD`,
   Windows per-user installer and zip.
 
-[Unreleased]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/berat-kaan-akcan/quotaring/releases/tag/v0.2.0
