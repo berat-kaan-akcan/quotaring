@@ -19,6 +19,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Notification settings of their own: several warning levels, limit full, limit reset (off by
   default), per provider, and a test button; the tray menu turns them off or mutes them for an
   hour or until tomorrow. Older single-threshold settings carry over.
+- Larger, sharper tray number: a thinner ring and pixel-drawn digits at the small tray sizes
+  instead of a blurred font.
 
 ### Fixed
 - The same quota notification no longer repeats on every poll: providers report the reset time

@@ -9,7 +9,7 @@ import sys
 import time
 
 from PySide6.QtCore import QLockFile, QObject, QPointF, QRectF, QRunnable, Qt, QThreadPool, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPen, QPixmap
+from PySide6.QtGui import QAction, QColor, QFont, QFontDatabase, QFontMetricsF, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from . import __version__, alerts, autostart, paths, pricing, settings as settings_mod, viewmodel
@@ -53,6 +53,67 @@ def make_icon(accent: str = theme.DEFAULT_ACCENT) -> QIcon:
     return icon
 
 
+def _tray_font() -> QFont:
+    """Narrow digits fit taller in the ring: Windows' Bahnschrift Condensed when it is there."""
+    if "Bahnschrift SemiBold Condensed" in QFontDatabase.families():
+        return QFont("Bahnschrift SemiBold Condensed")
+    font = QFont()
+    font.setBold(True)
+    font.setLetterSpacing(QFont.AbsoluteSpacing, -0.5)
+    return font
+
+
+# Hand-drawn digits for the tray's small sizes, where font digits blur across pixels.
+# "#" is a lit pixel and "|" ends a row.
+_DIGITS_5x9 = {
+    "0": ".###.|##.##|##.##|##.##|##.##|##.##|##.##|##.##|.###.",
+    "1": "..##.|.###.|..##.|..##.|..##.|..##.|..##.|..##.|..##.",
+    "2": ".###.|##.##|...##|...##|..##.|.##..|##...|##...|#####",
+    "3": ".###.|##.##|...##|...##|..##.|...##|...##|##.##|.###.",
+    "4": "...##|..###|.####|##.##|##.##|#####|...##|...##|...##",
+    "5": "#####|##...|##...|####.|...##|...##|...##|##.##|.###.",
+    "6": ".###.|##...|##...|####.|##.##|##.##|##.##|##.##|.###.",
+    "7": "#####|...##|...##|..##.|..##.|.##..|.##..|.##..|.##..",
+    "8": ".###.|##.##|##.##|##.##|.###.|##.##|##.##|##.##|.###.",
+    "9": ".###.|##.##|##.##|##.##|.####|...##|...##|...##|.###.",
+}
+_DIGITS_6x11 = {
+    "0": ".####.|##..##|##..##|##..##|##..##|##..##|##..##|##..##|##..##|##..##|.####.",
+    "1": "..##..|.###..|..##..|..##..|..##..|..##..|..##..|..##..|..##..|..##..|..##..",
+    "2": ".####.|##..##|....##|....##|...##.|..##..|.##...|##....|##....|##....|######",
+    "3": ".####.|##..##|....##|....##|....##|..###.|....##|....##|....##|##..##|.####.",
+    "4": "....##|...###|..####|.##.##|##..##|##..##|######|....##|....##|....##|....##",
+    "5": "######|##....|##....|##....|#####.|....##|....##|....##|....##|##..##|.####.",
+    "6": ".####.|##....|##....|##....|#####.|##..##|##..##|##..##|##..##|##..##|.####.",
+    "7": "######|....##|....##|....##|...##.|...##.|..##..|..##..|..##..|..##..|..##..",
+    "8": ".####.|##..##|##..##|##..##|##..##|.####.|##..##|##..##|##..##|##..##|.####.",
+    "9": ".####.|##..##|##..##|##..##|##..##|.#####|....##|....##|....##|....##|.####.",
+}
+_DIGITS_100_SMALL = {"0": "###|#.#|#.#|#.#|#.#|#.#|###", "1": ".#|##|.#|.#|.#|.#|.#"}
+_DIGITS_100 = {**_DIGITS_5x9, "1": ".##|###|.##|.##|.##|.##|.##|.##|.##"}
+# Icon size -> (glyphs for up to two digits, glyphs for three, scale). Larger sizes draw the font.
+_PIXEL_DIGITS = {
+    16: (_DIGITS_5x9, _DIGITS_100_SMALL, 1),
+    20: (_DIGITS_6x11, _DIGITS_100, 1),
+    22: (_DIGITS_6x11, _DIGITS_100, 1),
+    24: (_DIGITS_6x11, _DIGITS_100, 1),
+    30: (_DIGITS_5x9, _DIGITS_100_SMALL, 2),
+    32: (_DIGITS_5x9, _DIGITS_100_SMALL, 2),
+    40: (_DIGITS_6x11, _DIGITS_100, 2),
+}
+
+
+def _pixel_digits(text: str, size: int) -> tuple[list[list[str]], int] | None:
+    """The text's hand-drawn glyph rows and their scale at this icon size, or None to draw the font."""
+    if size not in _PIXEL_DIGITS or len(text) > 3:
+        return None
+    short, long, scale = _PIXEL_DIGITS[size]
+    table = short if len(text) <= 2 else long
+    if any(c not in table for c in text):
+        return None
+    return [table[c].split("|") for c in text], scale
+
+
 def make_ring_icon(ring: dict, show_remaining: bool, p: theme.Palette) -> QIcon:
     """Tray icon: a ring around the tightest limit with its number."""
     value = ring["remaining"] if show_remaining else ring["used"]
@@ -60,24 +121,49 @@ def make_ring_icon(ring: dict, show_remaining: bool, p: theme.Palette) -> QIcon:
     track = QColor(p.text)
     track.setAlphaF(0.22)
     icon = QIcon()
-    for size in (16, 22, 24, 32, 48, 64, 96, 128):
+    # 20, 30 and 40: Windows' tray at 125, 150 (24 px is 1.5x16 too) and 200 % scaling.
+    for size in (16, 20, 22, 24, 30, 32, 40, 48, 64, 96, 128):
         pm = QPixmap(size, size)
         pm.fill(QColor(0, 0, 0, 0))
         painter = QPainter(pm)
         painter.setRenderHint(QPainter.Antialiasing)
-        lw = max(2.0, size * 0.13)
+        lw = max(1.5, size * 0.08)  # a thin ring leaves the digits more room
         rect = QRectF(lw / 2, lw / 2, size - lw, size - lw)
         painter.setPen(QPen(track, lw))
         painter.drawEllipse(rect)
         if value > 0:
             painter.setPen(QPen(tone, lw, Qt.SolidLine, Qt.RoundCap))
             painter.drawArc(rect, 90 * 16, -round(360 * 16 * min(1.0, value / 100)))
-        font = QFont()
-        font.setBold(True)
-        font.setPixelSize(max(7, round(size * (0.36 if value >= 100 else 0.5))))
+        text, inner = str(value), size - 2 * lw
+        color = QColor(p.bad if ring["limited"] else p.text)
+        pixel = _pixel_digits(text, size)
+        if pixel:
+            # Whole pixels, centred: crisp where a font would smear at this size.
+            glyphs, k = pixel
+            w = (sum(len(g[0]) for g in glyphs) + len(glyphs) - 1) * k
+            x, y = (size - w) // 2, (size - len(glyphs[0]) * k + 1) // 2
+            for g in glyphs:
+                for r, row in enumerate(g):
+                    for c, ch in enumerate(row):
+                        if ch == "#":
+                            painter.fillRect(x + c * k, y + r * k, k, k, color)
+                x += (len(g[0]) + 1) * k
+            painter.end()
+            icon.addPixmap(pm)
+            continue
+        # The number as large as the inside of the ring allows: tray icons are tiny.
+        font = _tray_font()
+        px = round(inner * 1.3)
+        while True:
+            font.setPixelSize(px)
+            ink = QFontMetricsF(font).tightBoundingRect(text)
+            if px <= 6 or (ink.width() <= inner * 0.98 and ink.height() <= inner * 0.84):
+                break
+            px -= 1
         painter.setFont(font)
-        painter.setPen(QColor(p.bad if ring["limited"] else p.text))
-        painter.drawText(pm.rect(), Qt.AlignCenter, str(value))
+        painter.setPen(color)
+        # Centred on the digits' ink, not the font's line box, so they sit in the ring's middle.
+        painter.drawText(QPointF((size - ink.width()) / 2 - ink.x(), (size - ink.height()) / 2 - ink.y()), text)
         painter.end()
         icon.addPixmap(pm)
     return icon
