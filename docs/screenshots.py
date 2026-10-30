@@ -16,7 +16,10 @@ _tmp = tempfile.mkdtemp()
 _screen = Path(_tmp, "screen.json")
 _screen.write_text('{"screens": [{"name": "s", "x": 0, "y": 0, "width": 2000, "height": 2000,'
                    ' "logicalDpi": 96, "logicalBaseDpi": 96, "dpr": 1}]}')
-os.environ["QT_QPA_PLATFORM"] = f"offscreen:configfile={_screen}"
+# Relative: Qt splits the platform options at ":", which a Windows drive letter contains.
+os.environ["QT_QPA_PLATFORM"] = f"offscreen:configfile={Path(os.path.relpath(_screen)).as_posix()}"
+if sys.platform == "win32":  # offscreen finds no fonts of its own there
+    os.environ.setdefault("QT_QPA_FONTDIR", os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts"))
 os.environ.setdefault("QT_QUICK_BACKEND", "software")
 os.environ.setdefault("QT_SCALE_FACTOR", "2")
 os.environ["LANG"] = os.environ["LC_ALL"] = "C.UTF-8"  # English UI
@@ -24,8 +27,8 @@ os.environ["LANG"] = os.environ["LC_ALL"] = "C.UTF-8"  # English UI
 for var in ("XDG_CONFIG_HOME", "XDG_CACHE_HOME", "APPDATA", "LOCALAPPDATA"):
     os.environ[var] = _tmp
 
-from PySide6.QtCore import QObject, QRectF, Qt  # noqa: E402
-from PySide6.QtGui import QColor, QFont, QImage, QPainter  # noqa: E402
+from PySide6.QtCore import QObject, QPointF, QRectF, Qt  # noqa: E402
+from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen  # noqa: E402
 from PySide6.QtQuick import QQuickWindow  # noqa: E402,F401  (rootObjects() then yields QQuickWindow)
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
@@ -123,23 +126,59 @@ def shot(app, popup: Popup, name: str, page: str, full: bool = True, **props):
     popup.window.grabWindow().save(str(OUT / name))
 
 
-def tray_strip(palette: theme.Palette, name: str):
-    """The ring icon at panel size in three states, on a panel-coloured strip."""
-    rings = [{"available": True, "used": 34, "remaining": 66, "level": "ok", "limited": False},
-             {"available": True, "used": 81, "remaining": 19, "level": "warn", "limited": False},
-             {"available": True, "used": 100, "remaining": 0, "level": "bad", "limited": True}]
-    size, pad, scale = 32, 20, 3
-    img = QImage((pad + (size + pad) * len(rings)) * scale, (size + 2 * pad) * scale, QImage.Format_ARGB32)
-    img.fill(QColor(0, 0, 0, 0))
+def taskbar(palette: theme.Palette, dark: bool, name: str):
+    """The right end of a Windows 11 taskbar at its real proportions, with the demo's ring icon
+    among the usual tray icons (drawn here, so the image holds no real desktop)."""
+    w, h, scale = 300, 48, 2  # logical px; the taskbar is 48 px high, tray icons 16 px
+    bar, fg = (QColor("#1c1c1c"), QColor("#ffffff")) if dark else (QColor("#eeeeee"), QColor("#1a1a1a"))
+    img = QImage(w * scale, h * scale, QImage.Format_ARGB32)
+    img.fill(bar)
     p = QPainter(img)
     p.setRenderHint(QPainter.Antialiasing)
     p.scale(scale, scale)
+    edge = QColor(fg)
+    edge.setAlphaF(0.12)
+    p.setPen(QPen(edge, 1))
+    p.drawLine(QPointF(0, 0.5), QPointF(w, 0.5))
+    cy = h / 2
+    pen = QPen(fg, 1.3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+    p.setPen(pen)
+    p.setBrush(Qt.NoBrush)
+    p.drawPolyline([QPointF(14, cy + 2), QPointF(18, cy - 2), QPointF(22, cy + 2)])  # hidden icons
+    ring = viewmodel.widget_view(demo(), NOW)["ring"]
+    hover = QColor(fg)
+    hover.setAlphaF(0.08)
     p.setPen(Qt.NoPen)
-    p.setBrush(QColor(palette.bg))
-    p.drawRoundedRect(QRectF(0, 0, img.width() / scale, img.height() / scale), 10, 10)
-    for i, r in enumerate(rings):
-        pm = make_ring_icon(r, True, palette).pixmap(size * scale, size * scale)
-        p.drawPixmap(QRectF(pad + i * (size + pad), pad, size, size), pm, QRectF(pm.rect()))
+    p.setBrush(hover)  # the pointer rests on it
+    p.drawRoundedRect(QRectF(36, cy - 16, 32, 32), 4, 4)
+    pm = make_ring_icon(ring, True, palette).pixmap(16 * scale, 16 * scale)
+    p.drawPixmap(QRectF(44, cy - 8, 16, 16), pm, QRectF(pm.rect()))
+    p.setPen(pen)
+    p.setBrush(Qt.NoBrush)
+    x = 92  # wifi: three arcs over a dot
+    for r in (3.5, 7, 10.5):
+        p.drawArc(QRectF(x - r, cy + 5 - r, 2 * r, 2 * r), 45 * 16, 90 * 16)
+    p.setBrush(fg)
+    p.drawEllipse(QPointF(x, cy + 4.5), 1, 1)
+    p.setBrush(Qt.NoBrush)
+    x = 116  # speaker with two waves
+    p.drawPolygon([QPointF(x - 6, cy - 2.5), QPointF(x - 3, cy - 2.5), QPointF(x + 1, cy - 6),
+                   QPointF(x + 1, cy + 6), QPointF(x - 3, cy + 2.5), QPointF(x - 6, cy + 2.5)])
+    for r in (3.5, 6.5):
+        p.drawArc(QRectF(x + 1 - r, cy - r, 2 * r, 2 * r), -50 * 16, 100 * 16)
+    x = 136  # battery, about four fifths full
+    p.drawRoundedRect(QRectF(x, cy - 4.5, 16, 9), 2, 2)
+    p.drawLine(QPointF(x + 17.5, cy - 1.5), QPointF(x + 17.5, cy + 1.5))
+    p.setPen(Qt.NoPen)
+    p.setBrush(fg)
+    p.drawRoundedRect(QRectF(x + 2, cy - 2.5, 10, 5), 1, 1)
+    font = QFont("Segoe UI")
+    font.setPixelSize(12)
+    p.setFont(font)
+    p.setPen(fg)
+    clock = QRectF(170, 0, 110, h)
+    p.drawText(clock.adjusted(0, 0, 0, -h / 2 + 1), Qt.AlignRight | Qt.AlignBottom, "2:32 PM")
+    p.drawText(clock.adjusted(0, h / 2 + 2, 0, 0), Qt.AlignRight | Qt.AlignTop, "10/30/2026")
     p.end()
     img.save(str(OUT / name))
 
@@ -156,7 +195,8 @@ def main():
     shot(app, light, "tokens-light.png", "tokens", tokPeriod="7d")
     shot(app, dark, "settings-dark.png", "settings")
     shot(app, light, "settings-light.png", "settings")
-    tray_strip(theme.DARK, "tray-dark.png")
+    taskbar(theme.DARK, True, "taskbar-dark.png")
+    taskbar(theme.LIGHT, False, "taskbar-light.png")
     for f in sorted(OUT.glob("*.png")):
         print(f.relative_to(ROOT), QImage(str(f)).size().toTuple())
 

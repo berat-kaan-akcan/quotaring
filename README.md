@@ -14,8 +14,6 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey)
 
-<img src="docs/images/tray-dark.png" width="264" alt="Tray icon: a ring around the tightest limit left, in normal, warning and limit-reached states">
-
 <table>
   <tr>
     <td align="center" width="33%">
@@ -59,6 +57,12 @@
 ## Features
 
 - 🟢 **One glance.** The tray icon is a ring around the tightest limit left, turning amber and red as it runs out.
+
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="docs/images/taskbar-light.png">
+    <img src="docs/images/taskbar-dark.png" width="360" alt="Windows 11 taskbar: the QuotaRing icon, a ring showing 39 (percent left of the tightest limit), next to the Wi-Fi, volume and battery icons and the clock">
+  </picture>
+
 - 🧭 **Every limit in one popup.** 5-hour and weekly windows for Claude Code and Codex; for Antigravity, every model in its own row with its group's 5-hour and weekly limit on two rings — the same numbers as its *View Usage* panel, Gemini 4 Argon included.
 - 📊 **Where the tokens went.** Today, 5 hours, 7 days, 30 days or all scanned (last 35 days for JSONL logs): totals, the input / output / cache split, daily columns with their values, and every model — for all tools or one.
 - 💵 **What it would cost on the API.** Each model and total is priced at API list rates, cache included. Prices update themselves weekly.
