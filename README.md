@@ -83,8 +83,19 @@ a native pacman package with `./packaging/arch/build.sh -s` (see [Linux packages
 > The Windows builds are not code-signed, so SmartScreen may show "Windows protected your PC".
 > Choose **More info → Run anyway**, or build it yourself (see below).
 
-On GNOME, enable the *AppIndicator and KStatusNotifierItem Support* extension to get a tray
-(see [Platform notes](#platform-notes-and-limitations)).
+> [!IMPORTANT]
+> **GNOME has no tray of its own.** QuotaRing needs the *AppIndicator and KStatusNotifierItem
+> Support* extension there; without it the popup opens as an ordinary window. Ubuntu ships it
+> enabled. Elsewhere, install and enable it, then log out and back in:
+>
+> ```sh
+> sudo apt install gnome-shell-extension-appindicator      # Debian
+> sudo dnf install gnome-shell-extension-appindicator      # Fedora
+> sudo pacman -S gnome-shell-extension-appindicator        # Arch
+> gnome-extensions enable appindicatorsupport@rgcjonas.gmail.com
+> ```
+>
+> KDE Plasma, Cinnamon, XFCE and Windows have a tray already.
 
 ## Using it
 
@@ -203,7 +214,7 @@ time; it is rebuilt.
   pip only loads `layer-shell-qt` when the system Qt has the same version; otherwise, and on GNOME,
   the app runs through XWayland and places the popup itself. `--xwayland` forces that.
 - **GNOME tray:** GNOME has no tray by default. Install the *AppIndicator and KStatusNotifierItem
-  Support* extension. Without a tray the popup is an ordinary window that stays open; closing it quits.
+  Support* extension ([commands above](#download)). Without a tray the popup is an ordinary window that stays open; closing it quits.
 - A harmless `qt.qpa.services: Failed to register with host portal` warning appears when running
   from source without an installed `.desktop` file.
 - PySide6 6.12 aborts at exit on Python < 3.12 (a reference-counting bug in its bindings);
