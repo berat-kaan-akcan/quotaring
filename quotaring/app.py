@@ -12,7 +12,7 @@ from PySide6.QtCore import QLockFile, QObject, QPointF, QRectF, QRunnable, Qt, Q
 from PySide6.QtGui import QAction, QColor, QFont, QFontDatabase, QFontMetricsF, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-from . import __version__, alerts, autostart, paths, pricing, settings as settings_mod, viewmodel
+from . import __version__, alerts, autostart, paths, pricing, settings as settings_mod, traypin, viewmodel
 from .engine import Engine
 from .providers import ALL
 from .providers.base import shutdown_children
@@ -223,6 +223,10 @@ class Controller(QObject):
             self.tray.activated.connect(self._tray_activated)
             self.tray.messageClicked.connect(lambda: self.popup.is_visible() or self.popup.show())
             self.tray.show()
+            if sys.platform == "win32" and getattr(sys, "frozen", False):
+                # Explorer adds the icon's settings entry a moment after it first appears.
+                for delay in (0, 3000, 15000):
+                    QTimer.singleShot(delay, lambda: traypin.promote(sys.executable))
         # Without a tray (GNOME without the AppIndicator extension) the popup is a normal window.
         self.popup = Popup(self.backend, docked=self.tray is not None)
         if self.tray is None:

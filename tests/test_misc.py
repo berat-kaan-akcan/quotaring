@@ -5,7 +5,7 @@ from datetime import datetime
 
 import pytest
 
-from quotaring import autostart, settings as settings_mod
+from quotaring import autostart, settings as settings_mod, traypin
 from quotaring.aggregate import aggregate, period_starts
 from quotaring.model import ProviderSnapshot, LocalUsage, Quota, QuotaWindow, State, Tokens, UsageEvent
 from quotaring.ui import format as fmt
@@ -129,3 +129,12 @@ def test_tray_summary_only_reports_provider_quota():
     assert lines[0].startswith("Claude Code: 5-hour 24% · Weekly 84%")
     assert "%" not in lines[1]  # no quota invented for Antigravity
     assert lines[2] == "Codex: Not installed"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows paths")
+def test_tray_entry_matches_own_exe():
+    exe = r"C:\Users\u\AppData\Local\Programs\QuotaRing\quotaring.exe"
+    assert traypin.same_exe(r"c:\users\u\appdata\local\programs\quotaring\QuotaRing.exe", exe)
+    assert traypin.same_exe(r"{F1B32785-6FBA-4FCF-9D55-7B8E7F157091}\Programs\QuotaRing\quotaring.exe", exe)
+    assert not traypin.same_exe(r"C:\Python\pythonw.exe", exe)
+    assert not traypin.same_exe(r"C:\Other\QuotaRing\quotaring.exe", exe)
