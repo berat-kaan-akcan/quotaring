@@ -42,7 +42,7 @@
   </tr>
 </table>
 
-**⬇ Install:** [**Windows**](#install-on-windows) · [**Linux**](#install-on-linux) · [all downloads](https://github.com/berat-kaan-akcan/quotaring/releases/latest)
+**⬇ Install:** [**Windows**](#install-on-windows) · [**Linux**](#install-on-linux) · [macOS (experimental)](#macos-experimental) · [all downloads](https://github.com/berat-kaan-akcan/quotaring/releases/latest)
 
 [What is supported](#what-is-supported) · [Privacy](#privacy-and-security) · [Build from source](#build-from-source)
 
@@ -69,7 +69,7 @@
 - 🔒 **No credentials touched.** Limits come from each tool's own CLI or local server; files are opened read-only.
 - 🔔 **Notifications** once per limit window: warning levels of your choice (presets 50–95 % or any custom percentage), limit full, limit reset; per provider, with a mute in the tray menu. Each notification carries the limit's ring as its icon, and clicking one opens the popup.
 - ⬆️ **Updates itself.** A new release shows up in the popup; *Update* installs it and restarts, checked against the release's SHA-256 sums.
-- 🖥️ **Linux and Windows.** GNOME and KDE, X11 and Wayland (layer-shell popup on Plasma); runs from source on macOS; English and Turkish.
+- 🖥️ **Linux and Windows.** GNOME and KDE, X11 and Wayland (layer-shell popup on Plasma); runs from source on macOS (experimental, untested); English and Turkish.
 
 ## Download
 
@@ -142,10 +142,32 @@ Set them before `sh`, for example `curl -fsSL …/install.sh | QUOTARING_APPIMAG
 
 </details>
 
+### macOS (experimental)
+
+There is no macOS download. QuotaRing can be run from source with Python 3.10+, but it has **not
+been tested on a Mac**. Paste in Terminal:
+
+```sh
+git clone https://github.com/berat-kaan-akcan/quotaring.git && cd quotaring
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python -m quotaring
+```
+
+Start it again later with `cd quotaring && .venv/bin/python -m quotaring`. Known gaps:
+
+- The icon goes in the menu bar. A left click may open its menu instead of the popup; if it does,
+  choose *Show* there.
+- The Dock shows a Python icon while it runs, as there is no `.app` bundle.
+- No *Start at login* and no self-update: update with `git pull` in the `quotaring` folder.
+
+If you try it, an [issue](https://github.com/berat-kaan-akcan/quotaring/issues) saying what worked
+and what did not is very welcome.
+
 <details>
 <summary>Uninstall</summary>
 
 - Windows: *Settings → Apps → QuotaRing*.
+- macOS: delete the `quotaring` folder, and `~/Library/Application Support/quotaring` and `~/Library/Caches/quotaring` for its settings and cache.
 - Debian / Ubuntu: `sudo apt remove quotaring`.
 - AppImage: `rm ~/.local/bin/quotaring ~/.local/bin/quotaring.AppImage ~/.local/share/applications/quotaring.desktop`.
 
@@ -313,7 +335,7 @@ time; it is rebuilt.
 ## Build from source
 
 ### Run from source (Linux, Windows, macOS)
-Requires Python 3.10+. (On macOS, running from source works; *Start at login* is Linux/Windows only.)
+Requires Python 3.10+. (macOS is experimental and untested; see [macOS](#macos-experimental). *Start at login* is Linux/Windows only.)
 
 ```sh
 git clone https://github.com/berat-kaan-akcan/quotaring.git && cd quotaring
