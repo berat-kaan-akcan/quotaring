@@ -92,14 +92,24 @@ ColumnLayout {
     // What to be told about, and for which providers. Every alert appears once per limit window.
     Section {
         id: notifySec
+        objectName: "notifySection"
         title: win.t.notifications
         readonly property bool on: !!win.draft.notify_enabled && win.f.notifySupported !== false
+        // The suggested levels plus any of the user's own; an own level's chip goes once it is unticked.
+        readonly property var levelChips: {
+            const all = (win.f.notifyLevels || []).concat(win.draft.notify_levels || []);
+            return all.filter((n, i) => all.indexOf(n) === i).sort((a, b) => a - b);
+        }
         function hasLevel(n) { return (win.draft.notify_levels || []).indexOf(n) >= 0; }
         function toggleLevel(n) {
             const cur = (win.draft.notify_levels || []).filter(x => x !== n);
             if (!hasLevel(n))
                 cur.push(n);
             win.set("notify_levels", cur.sort((a, b) => a - b));
+        }
+        function addLevel(n) {
+            if (n >= 1 && n <= 100 && !hasLevel(n))
+                toggleLevel(n);
         }
         Row2 {
             label: win.t.notifyEnabled
@@ -117,13 +127,70 @@ ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 6
                 Repeater {
-                    model: win.f.notifyLevels || []
+                    model: notifySec.levelChips
                     delegate: Chip {
                         required property var modelData
                         text: (win.t.pct || "{n}%").replace("{n}", modelData)
                         checked: notifySec.hasLevel(modelData)
                         onToggled: notifySec.toggleLevel(modelData)
                     }
+                }
+                // "+ Custom": becomes a small number field; Enter adds the level, Esc or leaving it cancels.
+                Rectangle {
+                    id: customLevel
+                    objectName: "customLevel"
+                    property bool editing: false
+                    function start() { editing = true; levelInput.text = ""; levelInput.forceActiveFocus(); }
+                    function commit() {
+                        notifySec.addLevel(parseInt(levelInput.text));
+                        editing = false;
+                    }
+                    implicitWidth: editing ? 76 : customText.implicitWidth + 24
+                    implicitHeight: 28
+                    radius: 14
+                    color: !editing && customMouse.containsMouse ? win.c.track : "transparent"
+                    border.color: editing ? win.c.accent : win.c.border
+                    Text {
+                        id: customText
+                        visible: !customLevel.editing
+                        anchors.centerIn: parent
+                        text: "+ " + (win.t.notifyCustom || "")
+                        color: win.c.muted
+                        font.pointSize: 9
+                    }
+                    MouseArea {
+                        id: customMouse
+                        visible: !customLevel.editing
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: customLevel.start()
+                    }
+                    Row {
+                        visible: customLevel.editing
+                        anchors.centerIn: parent
+                        spacing: 1
+                        Text { visible: win.t.locale === "tr"; text: "%"; color: win.c.muted; font.pointSize: 9 }
+                        TextInput {
+                            id: levelInput
+                            objectName: "customLevelInput"
+                            width: Math.max(contentWidth + 2, 14)
+                            color: win.c.text
+                            font.pointSize: 9
+                            font.features: { "tnum": 1 }
+                            maximumLength: 3
+                            validator: IntValidator { bottom: 1; top: 100 }
+                            selectByMouse: true
+                            onAccepted: customLevel.commit()
+                            onActiveFocusChanged: if (!activeFocus) customLevel.editing = false
+                            Keys.onEscapePressed: customLevel.editing = false
+                            Accessible.name: win.t.notifyCustomHint || ""
+                        }
+                        Text { visible: win.t.locale !== "tr"; text: "%"; color: win.c.muted; font.pointSize: 9 }
+                    }
+                    Accessible.role: Accessible.Button
+                    Accessible.name: win.t.notifyCustomHint || ""
+                    Accessible.onPressAction: if (enabled) customLevel.start()
                 }
             }
             Text { Layout.fillWidth: true; text: win.t.notifyLevelsHint || ""; color: win.c.muted; font.pointSize: 8; wrapMode: Text.WordWrap }

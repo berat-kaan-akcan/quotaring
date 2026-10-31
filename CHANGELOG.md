@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- Notifications: a custom warning level (any percentage from 1 to 100) next to the suggested
+  ones, through *+ Custom* in Settings.
+
 ## [0.2.0] - 2026-10-30
 
 First public release.

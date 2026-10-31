@@ -67,7 +67,7 @@
 - 📊 **Where the tokens went.** Today, 5 hours, 7 days, 30 days or all scanned (last 35 days for JSONL logs): totals, the input / output / cache split, daily columns with their values, and every model — for all tools or one.
 - 💵 **What it would cost on the API.** Each model and total is priced at API list rates, cache included. Prices update themselves weekly.
 - 🔒 **No credentials touched.** Limits come from each tool's own CLI or local server; files are opened read-only.
-- 🔔 **Notifications** once per limit window: warning levels of your choice (50–95 %), limit full, limit reset; per provider, with a mute in the tray menu. Each notification carries the limit's ring as its icon, and clicking one opens the popup.
+- 🔔 **Notifications** once per limit window: warning levels of your choice (presets 50–95 % or any custom percentage), limit full, limit reset; per provider, with a mute in the tray menu. Each notification carries the limit's ring as its icon, and clicking one opens the popup.
 - ⬆️ **Updates itself.** A new release shows up in the popup; *Update* installs it and restarts, checked against the release's SHA-256 sums.
 - 🖥️ **Linux and Windows.** GNOME and KDE, X11 and Wayland (layer-shell popup on Plasma); runs from source on macOS; English and Turkish.
 
@@ -218,7 +218,7 @@ do not contain.
 |---|---|
 | Appearance | Theme (system / light / dark) · accent colour (Slate, Ink or Amber; the app icon follows it, the tray ring follows the system panel's light/dark theme, and Amber shifts warnings to orange) · language (system, English, Türkçe) · limits as percent left or used |
 | General | Start at login · update API prices · check for updates |
-| Notifications | On / off · warning levels (any of 50, 75, 80, 90, 95 %; only fresh, provider-reported values; jumps fire only the highest crossed level) · limit full · limit reset (off by default) · which providers · test notification. The tray menu toggles them or mutes for an hour or until tomorrow (muted alerts still count as seen, so unmuting never floods) |
+| Notifications | On / off · warning levels (any of 50, 75, 80, 90, 95 %, plus your own from 1–100 % via *+ Custom*; only fresh, provider-reported values; jumps fire only the highest crossed level) · limit full · limit reset (off by default) · which providers · test notification. The tray menu toggles them or mutes for an hour or until tomorrow (muted alerts still count as seen, so unmuting never floods) |
 | Providers | Per provider: track it, and check its account limits |
 | Advanced | Local refresh interval (60 s) · quota refresh interval (300 s) · query timeout (20 s) · custom `claude` / `codex` paths |
 

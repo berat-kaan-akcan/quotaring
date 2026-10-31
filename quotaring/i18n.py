@@ -108,8 +108,10 @@ TR = {
     "Quota notifications": "Kota bildirimleri",
     "Each one appears once per limit window": "Her biri, limit dönemi başına yalnızca bir kez gösterilir",
     "Warn when usage reaches": "Kullanım şu seviyeye ulaşınca uyar",
-    "Pick one or more; only the highest level reached is shown":
-        "Bir veya birkaçını seçin; yalnızca ulaşılan en yüksek seviye bildirilir",
+    "Pick one or more, or add your own; only the highest level reached is shown":
+        "Bir veya birkaçını seçin ya da kendinizinkini ekleyin; yalnızca ulaşılan en yüksek seviye bildirilir",
+    "Custom": "Özel",
+    "Add your own warning level (1–100 %)": "Kendi uyarı seviyenizi ekleyin (%1–100)",
     "When a limit is full": "Limit dolduğunda",
     "When a full limit resets": "Dolan limit sıfırlandığında",
     "Notify for": "Bildirim alınacaklar",

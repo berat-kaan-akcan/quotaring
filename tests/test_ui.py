@@ -10,7 +10,7 @@ os.environ.setdefault("QT_QUICK_BACKEND", "software")
 QtWidgets = pytest.importorskip("PySide6.QtWidgets")
 pytest.importorskip("PySide6.QtQuick")
 
-from PySide6.QtCore import QObject, QtMsgType, qInstallMessageHandler  # noqa: E402
+from PySide6.QtCore import QMetaObject, QObject, QtMsgType, qInstallMessageHandler  # noqa: E402
 
 from quotaring import viewmodel  # noqa: E402
 from quotaring.aggregate import aggregate  # noqa: E402
@@ -283,6 +283,30 @@ def test_settings_page_renders_and_saves(app, settings, qml_errors):
     backend.saveSettings(dict(draft, theme="dark", enabled_codex=False))
     assert saved and saved[0]["theme"] == "dark" and saved[0]["enabled_codex"] is False
     assert saved[0]["notify_enabled"] is False
+    assert qml_errors == []
+
+
+def test_settings_page_adds_a_custom_level(app, settings, qml_errors):
+    from quotaring.ui import settings_form
+    settings.notify_levels = [85, 90]  # 85 is not a suggested level: it gets its own chip
+    backend, popup = popup_for(settings)
+    backend.set_settings_form(settings_form.form(settings, True))
+    popup.open_settings()
+    settle(app)
+    win = popup.window.findChild(QObject, "settingsPage")
+    sec = win.findChild(QObject, "notifySection")
+    assert [int(n) for n in sec.property("levelChips").toVariant()] == [50, 75, 80, 85, 90, 95]
+    custom = win.findChild(QObject, "customLevel")
+    QMetaObject.invokeMethod(custom, "start")
+    settle(app)
+    field = win.findChild(QObject, "customLevelInput")
+    assert custom.property("editing") and field.property("activeFocus")
+    field.setProperty("text", "42")
+    QMetaObject.invokeMethod(custom, "commit")
+    settle(app)
+    assert win.property("draft").toVariant()["notify_levels"] == [42, 85, 90]
+    assert not custom.property("editing")
+    assert [int(n) for n in sec.property("levelChips").toVariant()] == [42, 50, 75, 80, 85, 90, 95]
     assert qml_errors == []
 
 
