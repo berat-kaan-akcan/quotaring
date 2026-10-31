@@ -6,11 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-### Added
-- Notifications: a custom warning level (any percentage from 1 to 100) next to the suggested
-  ones, through *+ Custom* in Settings.
-
-## [0.2.0] - 2026-10-30
+## [0.2.0] - 2026-10-31
 
 First public release.
 
@@ -39,7 +35,8 @@ First public release.
 - API prices update themselves: LiteLLM's public price list at most once a week, OpenRouter's
   model list for models it lacks, and a built-in table for the rest (*Update API prices* in
   Settings).
-- Notifications: warning levels of your choice, limit full, limit reset (off by default), per
+- Notifications: warning levels of your choice (suggested ones or any percentage through
+  *+ Custom*), limit full, limit reset (off by default), per
   provider, with a test button; the tray menu turns them off or mutes them for an hour or until
   tomorrow. They say what is left and when it comes back, carry the limit's ring as their icon,
   and clicking one opens the popup.
