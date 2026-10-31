@@ -51,11 +51,15 @@ First public release.
   removed once the new version runs. GitHub is asked at most twice a day; *Check for updates* in
   Settings turns it off.
 - One-line installs: `curl -fsSL …/install.sh | sh` on Linux (the .deb through apt on
-  Debian/Ubuntu, else the AppImage in ~/.local/bin with a menu entry) and
-  `irm …/install.ps1 | iex` on Windows; both check the release's SHA256SUMS.txt.
+  Debian/Ubuntu, else the AppImage in ~/.local/bin with a menu entry and the `quotaring`
+  command) and `irm …/install.ps1 | iex` on Windows; both check the release's SHA256SUMS.txt and
+  start the app when done, restarting a running copy on an update. On Linux it also installs the
+  system packages the app needs when they are missing: FUSE 2 for the AppImage and, on GNOME, the
+  AppIndicator extension for the tray.
 - Packages with fixed file names, so the README's links always fetch the newest version: Linux
   tarball, `.deb` and AppImage (built on Ubuntu 22.04), Arch `PKGBUILD`, Windows per-user
-  installer and zip.
+  installer and zip. The Linux builds use the system's `libstdc++`: the build machine's older
+  copy kept newer Mesa drivers (Arch, CachyOS) from loading, so the app could not start.
 
 [Unreleased]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.2.0...HEAD
 [0.2.0]: https://github.com/berat-kaan-akcan/quotaring/releases/tag/v0.2.0

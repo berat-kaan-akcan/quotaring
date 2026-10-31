@@ -24,6 +24,11 @@ a = Analysis(
     datas=[(str(ROOT / "quotaring" / "ui" / "qml"), "quotaring/ui/qml")],
     noarchive=False,
 )
+if sys.platform.startswith("linux"):
+    # The build machine's libstdc++ (Ubuntu 22.04) is older than the one newer Mesa drivers are
+    # linked against, so bundling it makes GLX fail to load on e.g. Arch/CachyOS and the app
+    # aborts with "Could not initialize GLX". Every distribution ships a libstdc++ at least as new.
+    a.binaries = [b for b in a.binaries if not Path(b[0]).name.startswith("libstdc++.so")]
 VERSION = None
 if sys.platform == "win32":
     # Windows shows FileDescription as the notification sender and in Task Manager; without it, "quotaring.exe".

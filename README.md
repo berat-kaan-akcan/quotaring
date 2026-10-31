@@ -42,7 +42,7 @@
   </tr>
 </table>
 
-**⬇ Download:** [**Windows**](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-setup.exe) · [**Ubuntu / Debian (.deb)**](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring_amd64.deb) · [**Linux AppImage**](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-x86_64.AppImage) · [one-line install](#download)
+**⬇ Install:** [**Windows**](#install-on-windows) · [**Linux**](#install-on-linux) · [all downloads](https://github.com/berat-kaan-akcan/quotaring/releases/latest)
 
 [What is supported](#what-is-supported) · [Privacy](#privacy-and-security) · [Build from source](#build-from-source)
 
@@ -73,68 +73,87 @@
 
 ## Download
 
-### Windows 10/11
+Pick your system. The one-line command is the quickest way: it downloads, checks the checksum,
+installs and starts QuotaRing. The direct downloads below it are for installing by hand.
+Either way, QuotaRing [updates itself](#using-it) afterwards.
 
-**[⬇ Download QuotaRing for Windows](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-setup.exe)** (`quotaring-setup.exe`), then
-open it. It installs for your user only, with no admin rights, and adds a Start menu entry.
+### Install on Windows
 
-Or install it from PowerShell with one command (downloads, checks the checksum, installs, starts):
+Windows 10/11. Paste in PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/berat-kaan-akcan/quotaring/main/install.ps1 | iex
 ```
 
-### Linux (x86_64)
+It installs for your user only, with no admin rights, and adds a Start menu entry.
 
-Open a terminal and paste:
+**Or download directly:**
+[quotaring-setup.exe](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-setup.exe) (installer, open it) ·
+[quotaring-windows-x64.zip](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-windows-x64.zip) (portable, extract and run `quotaring.exe`)
+
+> [!NOTE]
+> The downloads are not code-signed, so SmartScreen may say "Windows protected your PC".
+> Choose **More info → Run anyway**, or use the command above.
+
+### Install on Linux
+
+x86_64. Paste in a terminal:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/berat-kaan-akcan/quotaring/main/install.sh | sh
 ```
 
-On Debian and Ubuntu this installs the `.deb` with apt, which asks for your `sudo` password. On
-other distributions (Fedora, Arch, openSUSE…) it puts the AppImage in `~/.local/bin` and adds a menu
-entry, without root. To get the AppImage on Debian or Ubuntu too:
-`curl -fsSL https://raw.githubusercontent.com/berat-kaan-akcan/quotaring/main/install.sh | QUOTARING_APPIMAGE=1 sh`
+When it finishes, the icon is in the system tray: click it to open the popup. Before you paste,
+here is exactly what it installs (`sudo` asks for your password only when something is missing):
 
-### Or download a file yourself
-
-Each link downloads the newest version directly:
-
-| System | Download | Then |
+| System | QuotaRing goes to | System packages added if missing |
 |---|---|---|
-| Windows 10/11 | [quotaring-setup.exe](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-setup.exe) | open it |
-| Windows, portable | [quotaring-windows-x64.zip](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-windows-x64.zip) | extract, run `quotaring.exe` |
-| Ubuntu 22.04+ / Debian 12+ | [quotaring_amd64.deb](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring_amd64.deb) | `sudo apt install ./quotaring_amd64.deb` |
-| Any Linux | [quotaring-x86_64.AppImage](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-x86_64.AppImage) | `chmod +x quotaring-x86_64.AppImage`, then run it |
-| Any Linux, portable | [quotaring-linux-x86_64.tar.gz](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-linux-x86_64.tar.gz) | extract, run `quotaring/quotaring` |
+| Debian / Ubuntu | `/opt/quotaring` (a `.deb`, through apt) | the `.deb`'s dependencies |
+| Arch / CachyOS / Manjaro | `~/.local/bin/quotaring.AppImage` | `fuse2` |
+| Fedora | `~/.local/bin/quotaring.AppImage` | `fuse-libs` |
+| openSUSE | `~/.local/bin/quotaring.AppImage` | `libfuse2` |
 
-[SHA256SUMS.txt](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/SHA256SUMS.txt) lists the checksums; older versions are on the
-[Releases page](https://github.com/berat-kaan-akcan/quotaring/releases). On Arch / CachyOS you can
-also build a native pacman package with `./packaging/arch/build.sh -s` (see
-[Linux packages](#linux-packages)). Once installed, QuotaRing [updates itself](#using-it).
+It also adds an app-menu entry and the `quotaring` command. FUSE 2 is what an AppImage needs to run.
 
-**Uninstall:** Windows: *Settings → Apps → QuotaRing*. Debian/Ubuntu: `sudo apt remove quotaring`.
-AppImage: `rm ~/.local/bin/quotaring.AppImage ~/.local/share/applications/quotaring.desktop`.
+**GNOME:** GNOME has no tray of its own, so the command also installs and enables the
+*AppIndicator* extension (`gnome-shell-extension-appindicator`); log out and back in once for the
+icon to appear. KDE Plasma, Cinnamon and XFCE need nothing extra.
 
-> [!NOTE]
-> The Windows builds are not code-signed, so SmartScreen may show "Windows protected your PC"
-> when you open the downloaded file. Choose **More info → Run anyway**, or use the PowerShell
-> command above, or build it yourself (see below).
+**Or download directly:**
 
-> [!IMPORTANT]
-> **GNOME has no tray of its own.** QuotaRing needs the *AppIndicator and KStatusNotifierItem
-> Support* extension there; without it the popup opens as an ordinary window. Ubuntu ships it
-> enabled. Elsewhere, install and enable it, then log out and back in:
->
-> ```sh
-> sudo apt install gnome-shell-extension-appindicator      # Debian
-> sudo dnf install gnome-shell-extension-appindicator      # Fedora
-> sudo pacman -S gnome-shell-extension-appindicator        # Arch
-> gnome-extensions enable appindicatorsupport@rgcjonas.gmail.com
-> ```
->
-> KDE Plasma, Cinnamon, XFCE and Windows have a tray already.
+| File | Then |
+|---|---|
+| [quotaring_amd64.deb](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring_amd64.deb) (Ubuntu 22.04+ / Debian 12+) | `sudo apt install ./quotaring_amd64.deb` |
+| [quotaring-x86_64.AppImage](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-x86_64.AppImage) (any distribution) | install FUSE 2 (table above), `chmod +x quotaring-x86_64.AppImage`, run it |
+| [quotaring-linux-x86_64.tar.gz](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-linux-x86_64.tar.gz) (portable) | extract, run `quotaring/quotaring` |
+
+<details>
+<summary>Installer options</summary>
+
+Set them before `sh`, for example `curl -fsSL …/install.sh | QUOTARING_APPIMAGE=1 sh`:
+
+- `QUOTARING_APPIMAGE=1`: the AppImage on Debian / Ubuntu too, instead of the `.deb`.
+- `QUOTARING_NO_DEPS=1`: install no system packages; add them yourself first:
+  `sudo pacman -S --needed fuse2` (Arch), `sudo dnf install fuse-libs` (Fedora),
+  `sudo zypper install libfuse2` (openSUSE), `sudo apt install libfuse2t64` (Ubuntu 24.04+; 22.04: `libfuse2`),
+  and on GNOME `gnome-shell-extension-appindicator` from the same package manager, then
+  `gnome-extensions enable appindicatorsupport@rgcjonas.gmail.com`.
+- `QUOTARING_NO_START=1`: install without starting it.
+
+</details>
+
+<details>
+<summary>Uninstall</summary>
+
+- Windows: *Settings → Apps → QuotaRing*.
+- Debian / Ubuntu: `sudo apt remove quotaring`.
+- AppImage: `rm ~/.local/bin/quotaring ~/.local/bin/quotaring.AppImage ~/.local/share/applications/quotaring.desktop`.
+
+</details>
+
+Checksums: [SHA256SUMS.txt](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/SHA256SUMS.txt).
+Older versions: [Releases page](https://github.com/berat-kaan-akcan/quotaring/releases).
+To build it yourself, including a native Arch package, see [Build from source](#build-from-source).
 
 ## Using it
 
@@ -270,7 +289,7 @@ time; it is rebuilt.
   pip only loads `layer-shell-qt` when the system Qt has the same version; otherwise, and on GNOME,
   the app runs through XWayland and places the popup itself. `--xwayland` forces that.
 - **GNOME tray:** GNOME has no tray by default. Install the *AppIndicator and KStatusNotifierItem
-  Support* extension ([commands above](#download)). Without a tray the popup is an ordinary window that stays open; closing it quits.
+  Support* extension; the Linux install command adds and enables it ([details](#install-on-linux)). Without a tray the popup is an ordinary window that stays open; closing it quits.
 - A harmless `qt.qpa.services: Failed to register with host portal` warning appears when running
   from source without an installed `.desktop` file.
 - PySide6 6.12 aborts at exit on Python < 3.12 (a reference-counting bug in its bindings);
