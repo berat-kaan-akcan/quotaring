@@ -109,11 +109,13 @@ here is exactly what it installs (`sudo` asks for your password only when someth
 | System | QuotaRing goes to | System packages added if missing |
 |---|---|---|
 | Debian / Ubuntu | `/opt/quotaring` (a `.deb`, through apt) | the `.deb`'s dependencies |
-| Arch / CachyOS / Manjaro | `~/.local/bin/quotaring.AppImage` | `fuse2` |
+| Arch / CachyOS / Manjaro | `/usr/share/quotaring` (a pacman package) | `python`, `pyside6`; on KDE `layer-shell-qt` |
 | Fedora | `~/.local/bin/quotaring.AppImage` | `fuse-libs` |
 | openSUSE | `~/.local/bin/quotaring.AppImage` | `libfuse2` |
 
 It also adds an app-menu entry and the `quotaring` command. FUSE 2 is what an AppImage needs to run.
+The Arch package runs on the system's Qt, so on KDE Plasma Wayland the popup opens anchored by the
+panel; an earlier AppImage install is removed. Run the same command again to update it.
 
 **GNOME:** GNOME has no tray of its own, so the command also installs and enables the
 *AppIndicator* extension (`gnome-shell-extension-appindicator`); log out and back in once for the
@@ -125,6 +127,7 @@ icon to appear. KDE Plasma, Cinnamon and XFCE need nothing extra.
 |---|---|
 | [quotaring_amd64.deb](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring_amd64.deb) (Ubuntu 22.04+ / Debian 12+) | `sudo apt install ./quotaring_amd64.deb` |
 | [quotaring-x86_64.AppImage](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-x86_64.AppImage) (any distribution) | install FUSE 2 (table above), `chmod +x quotaring-x86_64.AppImage`, run it |
+| [quotaring-any.pkg.tar.zst](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-any.pkg.tar.zst) (Arch / CachyOS / Manjaro) | `sudo pacman -U quotaring-any.pkg.tar.zst` |
 | [quotaring-linux-x86_64.tar.gz](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-linux-x86_64.tar.gz) (portable) | extract, run `quotaring/quotaring` |
 
 <details>
@@ -132,9 +135,9 @@ icon to appear. KDE Plasma, Cinnamon and XFCE need nothing extra.
 
 Set them before `sh`, for example `curl -fsSL …/install.sh | QUOTARING_APPIMAGE=1 sh`:
 
-- `QUOTARING_APPIMAGE=1`: the AppImage on Debian / Ubuntu too, instead of the `.deb`.
+- `QUOTARING_APPIMAGE=1`: the AppImage on Debian / Ubuntu or Arch too, instead of their package.
 - `QUOTARING_NO_DEPS=1`: install no system packages; add them yourself first:
-  `sudo pacman -S --needed fuse2` (Arch), `sudo dnf install fuse-libs` (Fedora),
+  `sudo pacman -S --needed pyside6 layer-shell-qt` (Arch), `sudo dnf install fuse-libs` (Fedora),
   `sudo zypper install libfuse2` (openSUSE), `sudo apt install libfuse2t64` (Ubuntu 24.04+; 22.04: `libfuse2`),
   and on GNOME `gnome-shell-extension-appindicator` from the same package manager, then
   `gnome-extensions enable appindicatorsupport@rgcjonas.gmail.com`.
@@ -169,13 +172,14 @@ and what did not is very welcome.
 - Windows: *Settings → Apps → QuotaRing*.
 - macOS: delete the `quotaring` folder, and `~/Library/Application Support/quotaring` and `~/Library/Caches/quotaring` for its settings and cache.
 - Debian / Ubuntu: `sudo apt remove quotaring`.
+- Arch: `sudo pacman -R quotaring`.
 - AppImage: `rm ~/.local/bin/quotaring ~/.local/bin/quotaring.AppImage ~/.local/share/applications/quotaring.desktop`.
 
 </details>
 
 Checksums: [SHA256SUMS.txt](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/SHA256SUMS.txt).
 Older versions: [Releases page](https://github.com/berat-kaan-akcan/quotaring/releases).
-To build it yourself, including a native Arch package, see [Build from source](#build-from-source).
+To build it yourself, see [Build from source](#build-from-source).
 
 ## Using it
 
@@ -194,7 +198,7 @@ release's `SHA256SUMS.txt`, installs it and starts the new version:
 | Windows zip, Linux tarball | swaps the folder for the new one (the old one is put back if that fails) |
 | AppImage | replaces the AppImage file |
 | `.deb` | installs the new package with `apt` through `pkexec` (asks for your password) |
-| Arch package, source, non-x86_64 | opens the release page; update with your package manager or `git pull` |
+| Arch package, source, non-x86_64 | opens the release page; run the install command again (Arch) or `git pull` |
 
 If an update fails, the banner says so and its button opens the release page instead.
 
@@ -307,7 +311,9 @@ time; it is rebuilt.
   compositors) the popup is a layer-shell surface anchored by the panel, through KDE's
   `layer-shell-qt` QML module (`/usr/lib/qt6/qml/org/kde/layershell` and multiarch equivalents).
   On Plasma, KWin's D-Bus scripting interface (`org.kde.KWin`) is asked for the cursor X position
-  so the popup opens directly above the clicked tray icon (else in the panel corner). PySide6 from
+  so the popup opens directly above the clicked tray icon. That spot is remembered, so a popup that
+  opens on its own (at start, from a notification) opens there too; before the first click, and
+  after the screens change, it opens in the panel corner. PySide6 from
   pip only loads `layer-shell-qt` when the system Qt has the same version; otherwise, and on GNOME,
   the app runs through XWayland and places the popup itself. `--xwayland` forces that.
 - **GNOME tray:** GNOME has no tray by default. Install the *AppIndicator and KStatusNotifierItem
@@ -352,7 +358,7 @@ tests there first) and produces a bundle that runs on Ubuntu 22.04+, Debian 12+,
 
 `./packaging/linux/build_linux.sh` does the same on the host without Docker (the result only runs
 on distros at least as new as the build machine).
-- Arch/CachyOS: `./packaging/arch/build.sh -s` then `sudo pacman -U packaging/out/quotaring-*.pkg.tar.zst`
+- Arch/CachyOS: `./packaging/arch/build.sh -s` (or `./packaging/arch/build_in_docker.sh`) then `sudo pacman -U packaging/out/quotaring-*.pkg.tar.zst`
   (uses system `python` + `pyside6`).
 - AppImage: `./packaging/linux/build_appimage_docker.sh` (downloads and runs appimagetool inside a container).
 

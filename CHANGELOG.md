@@ -18,7 +18,8 @@ First public release.
 - Popup by the tray icon, also when it opens by itself (first start, a click on a notification).
   It stays where it opened while its page changes size, grows with its page up to 660 px (or the
   screen's height), and taller pages scroll under a fixed header. KDE Plasma Wayland: a
-  layer-shell surface anchored by the panel; XWayland fallback elsewhere (`--xwayland`).
+  layer-shell surface anchored by the panel, above the icon where it was last clicked (the panel
+  corner before the first click); XWayland fallback elsewhere (`--xwayland`).
 - Claude Code: 5-hour and weekly limits (plus per-model weekly caps) via the `claude` CLI's
   experimental `get_usage` control request; local token counts from `~/.claude/projects`.
 - OpenAI Codex: ChatGPT-plan limits via `codex app-server`; local token counts from rollout logs.
@@ -55,9 +56,11 @@ First public release.
   command) and `irm …/install.ps1 | iex` on Windows; both check the release's SHA256SUMS.txt and
   start the app when done, restarting a running copy on an update. On Linux it also installs the
   system packages the app needs when they are missing: FUSE 2 for the AppImage and, on GNOME, the
-  AppIndicator extension for the tray.
+  AppIndicator extension for the tray. On Arch / CachyOS / Manjaro it installs the pacman package
+  (with `layer-shell-qt` on KDE) instead of the AppImage, replacing an earlier AppImage install.
 - Packages with fixed file names, so the README's links always fetch the newest version: Linux
-  tarball, `.deb` and AppImage (built on Ubuntu 22.04), Arch `PKGBUILD`, Windows per-user
+  tarball, `.deb` and AppImage (built on Ubuntu 22.04), Arch package `quotaring-any.pkg.tar.zst`
+  (runs on the system's Python and PySide6), Windows per-user
   installer and zip. The Linux builds use the system's `libstdc++`: the build machine's older
   copy kept newer Mesa drivers (Arch, CachyOS) from loading, so the app could not start.
 

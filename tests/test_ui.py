@@ -495,3 +495,18 @@ def test_cards_reorder_by_dragging(app, settings, qml_errors):
     assert settings.card_order[0] == "codex"
     assert {s: c.property("slot") for s, c in cards().items()} == {0: 0, 1: 1, 2: 2}
     assert qml_errors == []
+
+
+def test_tray_spot_is_remembered_for_its_screen(app):
+    from PySide6.QtCore import QRect
+    from PySide6.QtGui import QGuiApplication
+
+    from quotaring.ui.popup import load_tray_spot, save_tray_spot
+
+    assert load_tray_spot() is None
+    screen = QGuiApplication.primaryScreen().geometry()
+    save_tray_spot(screen.x() + 500, screen)
+    assert load_tray_spot() == (screen.x() + 500, screen)
+    # Another monitor setup: the saved spot no longer applies.
+    save_tray_spot(10, QRect(screen.x(), screen.y(), screen.width() + 1, screen.height()))
+    assert load_tray_spot() is None

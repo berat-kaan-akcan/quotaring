@@ -35,6 +35,17 @@ jobs:
             packaging/out/*.deb
             packaging/out/*.AppImage
 
+  arch:
+    needs: check-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./packaging/arch/build_in_docker.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch
+          path: packaging/out/*.pkg.tar.zst
+
   windows:
     needs: check-version
     runs-on: windows-latest
@@ -53,7 +64,7 @@ jobs:
             packaging/out/*-setup.exe
 
   release:
-    needs: [check-version, linux, windows]
+    needs: [check-version, linux, arch, windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -74,6 +85,7 @@ jobs:
           mv "quotaring-$V-x86_64.AppImage" quotaring-x86_64.AppImage
           mv quotaring_"$V"*_amd64.deb quotaring_amd64.deb
           mv "quotaring-$V-linux-x86_64-ubuntu22.04.tar.gz" quotaring-linux-x86_64.tar.gz
+          mv quotaring-"$V"-*-any.pkg.tar.zst quotaring-any.pkg.tar.zst
           ls -l
       - name: Checksums
         run: cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
@@ -27,6 +28,9 @@ REOPEN_GUARD = 0.35
 # click elsewhere, so within this time the popup asks for focus again instead of closing.
 SETTLE_TIME = 0.5
 PROBE_TIMEOUT_MS = 300
+# Layer-shell: where the tray icon was last clicked, so a popup that opens on its own (at start,
+# from a notification) opens above the icon too. Wayland gives no other way to find the icon.
+TRAY_SPOT_FILE = "tray-spot.json"
 
 
 def layer_shell_import_dir() -> str | None:
@@ -221,6 +225,27 @@ class Backend(QObject):
         self.quitRequested.emit()
 
 
+def save_tray_spot(x: int, screen: QRect) -> None:
+    try:
+        f = paths.cache_dir() / TRAY_SPOT_FILE
+        f.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        f.write_text(json.dumps({"x": x, "screen": [screen.x(), screen.y(), screen.width(), screen.height()]}))
+    except OSError:
+        log.info("could not save the tray icon position")
+
+
+def load_tray_spot() -> tuple[int, QRect] | None:
+    """The last clicked tray position, if its screen is still there with the same geometry."""
+    try:
+        data = json.loads((paths.cache_dir() / TRAY_SPOT_FILE).read_text())
+        x, screen = int(data["x"]), QRect(*(int(v) for v in data["screen"]))
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    if not any(s.geometry() == screen for s in QGuiApplication.screens()):
+        return None  # another monitor setup: the corner is the safer guess
+    return x, screen
+
+
 class Popup:
     """Loads the QML window and opens it by the panel: layer-shell on Wayland, placed by hand elsewhere.
 
@@ -248,6 +273,7 @@ class Popup:
         backend.focusLostRequested.connect(self.focus_lost)
         # Layer-shell: open above the clicked tray icon, located through KWin (see cursor_probe).
         self.probe = None
+        self._spot_placed = False  # rightMargin already follows a click in this session
         self._waiting = QTimer()
         self._waiting.setSingleShot(True)
         self._waiting.setInterval(PROBE_TIMEOUT_MS)
@@ -285,6 +311,10 @@ class Popup:
         if self.docked and not self.layer:
             self._anchor = anchor if anchor is not None else QCursor.pos()
             self._place()
+        elif self.layer and not self._spot_placed:
+            spot = load_tray_spot()
+            if spot is not None:
+                self._set_right_margin(*spot)
         self._shown_at = time.monotonic()
         self.window.show()
         self.window.raise_()
@@ -314,9 +344,14 @@ class Popup:
         if not self._waiting.isActive():
             return  # late answer: already opened in the corner, or closed again
         self._waiting.stop()
+        self._set_right_margin(x, screen)
+        self._spot_placed = True
+        save_tray_spot(x, screen)
+        self.show()
+
+    def _set_right_margin(self, x: int, screen: QRect):
         left = centered_left(x, self.window.width(), screen.x(), screen.width())
         self.window.setProperty("rightMargin", screen.x() + screen.width() - left - self.window.width())
-        self.show()
 
     def _place(self):
         """Above the clicked icon: centred on the cursor, inside the screen, by the panel.
