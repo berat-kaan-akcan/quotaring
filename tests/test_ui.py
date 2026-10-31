@@ -300,7 +300,7 @@ def test_settings_page_adds_a_custom_level(app, settings, qml_errors):
     QMetaObject.invokeMethod(custom, "start")
     settle(app)
     field = win.findChild(QObject, "customLevelInput")
-    assert custom.property("editing") and field.property("activeFocus")
+    assert custom.property("editing") and field.property("focus")  # active focus needs an active window (not on CI)
     field.setProperty("text", "42")
     QMetaObject.invokeMethod(custom, "commit")
     settle(app)
