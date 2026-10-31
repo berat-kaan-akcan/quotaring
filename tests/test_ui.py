@@ -106,7 +106,7 @@ def test_prefs_round_trip(app, settings):
     backend.setPref("showRemaining", False)
     backend.setPref("window", {"x": 1})  # unknown keys are ignored
     assert settings.show_remaining is False
-    assert backend.prefs == {"showRemaining": False, "pinned": {}, "order": []}
+    assert backend.prefs == {"showRemaining": False, "pinned": {}, "trayProvider": "", "trayLabel": "", "order": []}
     assert len(saved) == 1
 
 
@@ -510,3 +510,14 @@ def test_tray_spot_is_remembered_for_its_screen(app):
     # Another monitor setup: the saved spot no longer applies.
     save_tray_spot(10, QRect(screen.x(), screen.y(), screen.width() + 1, screen.height()))
     assert load_tray_spot() is None
+
+
+def test_tray_choice_is_saved_and_toggles(app, settings):
+    backend, _popup = popup_for(settings)
+    backend.setTray("antigravity", "Gemini 3.8 Flash")
+    assert (settings.tray_provider, settings.tray_label) == ("antigravity", "Gemini 3.8 Flash")
+    assert backend.prefs["trayLabel"] == "Gemini 3.8 Flash"
+    backend.setTray("antigravity", "")  # the card itself: any of its limits, not that model
+    assert (settings.tray_provider, settings.tray_label) == ("antigravity", "")
+    backend.setTray("antigravity", "")  # again: released
+    assert (settings.tray_provider, settings.tray_label) == ("", "")

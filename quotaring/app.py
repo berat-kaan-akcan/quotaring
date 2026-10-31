@@ -435,7 +435,8 @@ class Controller(QObject):
 
     def update_view(self):
         now = time.time()
-        view = viewmodel.widget_view(self.engine.snapshots.values(), now)
+        view = viewmodel.widget_view(self.engine.snapshots.values(), now,
+                                     self.settings.tray_provider, self.settings.pinned, self.settings.tray_label)
         self.backend.set_view(view)
         if self.tray is not None:
             tip = viewmodel.limits_tooltip(view["limits"], self.settings.show_remaining) or view["tooltip"]

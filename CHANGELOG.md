@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-31
+
+### Added
+- Choose what the tray ring shows: the circle in a card's top-right corner puts that provider in
+  the tray (its pinned limit, else its tightest), the circle before an Antigravity model puts that
+  model there. Clicking the chosen circle again goes back to the tightest limit of all. The choice
+  is saved.
+
 ## [0.2.0] - 2026-10-31
 
 First public release.
@@ -64,5 +72,6 @@ First public release.
   installer and zip. The Linux builds use the system's `libstdc++`: the build machine's older
   copy kept newer Mesa drivers (Arch, CachyOS) from loading, so the app could not start.
 
-[Unreleased]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/berat-kaan-akcan/quotaring/releases/tag/v0.2.0

@@ -170,6 +170,8 @@ class Backend(QObject):
     def prefs(self):
         prefs = {key: getattr(self.settings, attr) for key, (attr, _t) in self.PREFS.items()}
         prefs["pinned"] = dict(self.settings.pinned)
+        prefs["trayProvider"] = self.settings.tray_provider
+        prefs["trayLabel"] = self.settings.tray_label
         prefs["order"] = list(self.settings.card_order)
         return prefs
 
@@ -190,6 +192,17 @@ class Backend(QObject):
             self.settings.pinned.pop(provider, None)
         else:
             self.settings.pinned[provider] = label
+        self.settings.clamp()
+        self.prefsChanged.emit()
+        self.prefsSaved.emit()
+
+    @Slot(str, str)
+    def setTray(self, provider, label):
+        """Show this provider's limit (a model or limit when `label` is given) in the tray;
+        choosing the chosen one again releases the tray back to the tightest of all."""
+        s = self.settings
+        same = s.tray_provider == provider and s.tray_label == label
+        s.tray_provider, s.tray_label = ("", "") if same else (provider, label)
         self.settings.clamp()
         self.prefsChanged.emit()
         self.prefsSaved.emit()

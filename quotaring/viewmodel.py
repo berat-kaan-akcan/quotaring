@@ -156,6 +156,21 @@ def ring(snaps, now: float) -> dict:
             "limited": limited, "label": f"{name} · {label}"}
 
 
+def chosen_ring(limits: list[dict], provider: str, *labels: str | None) -> dict | None:
+    """The ring of the provider chosen for the tray: the first of `labels` it has (the model
+    chosen for the tray, then the pinned one), else its tightest limit.
+    None when it has no usable limit, so the caller falls back to the overall tightest."""
+    item = next((p for p in limits if p["id"] == provider), None)
+    live = [w for w in (item["windows"] if item else []) if not w["dim"]]
+    if not live:
+        return None
+    w = next((x for lb in labels if lb for x in live if x["label"] == lb), None) or min(
+        live, key=lambda x: (not x["limited"], x["remaining"]))
+    level = "bad" if w["limited"] or w["remaining"] <= 10 else "warn" if w["remaining"] <= 30 else "ok"
+    return {"available": True, "used": w["used"], "remaining": w["remaining"], "level": level,
+            "limited": w["limited"], "label": f"{item['name']} · {w['label']}"}
+
+
 def _day_label(day: str) -> str:
     d = date.fromisoformat(day)
     # Fixed names, not strftime: the process locale (set by Qt) is not the UI language.
@@ -226,14 +241,18 @@ def tokens_view(snaps, now: float) -> dict:
             "periods": [{"key": k, "label": tr(label)} for k, label in SHORT_PERIODS], "data": data}
 
 
-def widget_view(snapshots, now: float) -> dict:
+def widget_view(snapshots, now: float, tray_provider: str = "", pinned: dict | None = None,
+                tray_label: str = "") -> dict:
     snaps = list(snapshots)
+    limits = limits_view(snaps, now)
     return {
-        "ring": ring(snaps, now),
-        "limits": limits_view(snaps, now),
+        "ring": (tray_provider and chosen_ring(limits, tray_provider, tray_label, (pinned or {}).get(tray_provider)))
+        or ring(snaps, now),
+        "trayProvider": tray_provider,
+        "limits": limits,
         "tokens": tokens_view(snaps, now),
         "text": {"limits": tr("Limits"), "tokens": tr("Tokens"), "left": tr("left"), "used": tr("used"),
-                 "limitReached": tr("Limit reached"), "updated": tr("Updated {time}").format(
+                 "limitReached": tr("Limit reached"), "trayTip": tr("Show in the tray"), "updated": tr("Updated {time}").format(
                      time=datetime.fromtimestamp(now).strftime("%H:%M")),
                  "localOnly": tr("From local Claude Code, Codex and Antigravity logs; not account quota."),
                  "total": tr("Total tokens · {period}"), "daily": tr("Daily"), "byModel": tr("By model"),

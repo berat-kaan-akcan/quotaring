@@ -207,7 +207,10 @@ weekly one, in the provider's colour; the middle shows the tightest limit. Hover
 its exact value and reset tooltip, or hover a row below to preview it on the ring; click a row to
 keep it there (click again to unpin). Antigravity lists its models one by one — Opus, Sonnet and
 GPT-OSS share one pool there, so their numbers match — and the selected model's 5-hour and weekly
-limits take the two rings. Drag a card (from anywhere on it) to put the cards in the order you
+limits take the two rings. The small circle in a card's top-right corner puts that card in the
+tray (its pinned or tightest limit); the circle before an Antigravity model puts that model there,
+so a used-up model you have switched away from no longer holds the tray at 0. Click a chosen circle
+again to go back to the tightest limit of all. Drag a card (from anywhere on it) to put the cards in the order you
 like; the order is saved. The token strip at the bottom shows today and 7-day totals with a 7-day
 bar chart (filterable by provider).
 

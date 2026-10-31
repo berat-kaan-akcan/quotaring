@@ -22,6 +22,8 @@ class Settings:
     start_at_login: bool = False
     show_remaining: bool = True  # limits as what is left (else as what is used)
     pinned: dict = field(default_factory=dict)  # provider id -> limit label shown on its ring
+    tray_provider: str = ""  # provider whose limit the tray ring shows ("" = the tightest of all)
+    tray_label: str = ""  # that provider's model or limit shown in the tray ("" = its pinned or tightest)
     card_order: list = field(default_factory=list)  # provider ids as arranged in the popup
     notify_enabled: bool = True  # master switch for quota notifications
     notify_levels: list = field(default_factory=lambda: [90])  # percent used that warns, once per window each
@@ -51,6 +53,10 @@ class Settings:
         if self.accent not in ("slate", "ink", "amber"):
             self.accent = "slate"
         self.pinned = {k: v for k, v in self.pinned.items() if k in PROVIDER_IDS and isinstance(v, str)}
+        if self.tray_provider not in PROVIDER_IDS:
+            self.tray_provider = ""
+        if not self.tray_provider or not isinstance(self.tray_label, str):
+            self.tray_label = ""
         order = self.card_order if isinstance(self.card_order, list) else []
         self.card_order = [p for i, p in enumerate(order) if p in PROVIDER_IDS and p not in order[:i]]
         for d in (self.providers_enabled, self.quota_enabled, self.notify_providers):

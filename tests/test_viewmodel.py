@@ -138,3 +138,22 @@ def test_antigravity_models_one_row_each_with_ring_pair():
     assert [w["short"] for w in rows[1]["pair"]] == ["5 hours", "Weekly"]  # the ring's name on hover
     assert rows[2]["reset"].startswith("W · ")
     json.dumps(item)
+
+
+def test_tray_follows_the_chosen_provider():
+    low = snap()
+    v = viewmodel.widget_view([low], NOW, tray_provider=low.provider_id)
+    assert v["ring"]["label"].startswith(low.name.replace(" Code", ""))
+    assert viewmodel.widget_view([low], NOW, tray_provider="nobody")["ring"] == viewmodel.ring([low], NOW)
+
+
+def test_tray_shows_the_chosen_model_before_the_pinned_one():
+    limits = [{"id": "antigravity", "name": "Antigravity", "windows": [
+        {"label": "Claude Opus 5.5", "used": 100, "remaining": 0, "limited": True, "dim": False},
+        {"label": "Gemini 3.8 Flash", "used": 1, "remaining": 99, "limited": False, "dim": False},
+        {"label": "Gemini 4 Argon", "used": 77, "remaining": 23, "limited": False, "dim": False}]}]
+    assert viewmodel.chosen_ring(limits, "antigravity", "", None)["remaining"] == 0  # tightest
+    assert viewmodel.chosen_ring(limits, "antigravity", "", "Gemini 4 Argon")["remaining"] == 23  # pinned
+    r = viewmodel.chosen_ring(limits, "antigravity", "Gemini 3.8 Flash", "Gemini 4 Argon")
+    assert r["remaining"] == 99 and r["label"] == "Antigravity · Gemini 3.8 Flash"
+    assert viewmodel.chosen_ring(limits, "codex", "", None) is None

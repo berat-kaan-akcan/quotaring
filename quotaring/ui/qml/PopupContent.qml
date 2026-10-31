@@ -447,6 +447,19 @@ Item {
             }
         }
 
+        // Top-right corner: show this card in the tray. Filled while the tray shows it.
+        TrayDot {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.margins: 10
+            z: 2
+            visible: card.modelData.message === ""
+            color: card.modelData.color
+            chosen: backend.prefs.trayProvider === card.modelData.id
+            partial: chosen && backend.prefs.trayLabel !== ""
+            onPicked: backend.setTray(card.modelData.id, "")
+        }
+
         ColumnLayout {
             id: col
             anchors.fill: parent
@@ -584,6 +597,15 @@ Item {
                                     : card.multi || row.index === 0 ? ring.outerColor : ring.innerColor
                                 font.pointSize: 8
                                 font.weight: Font.Bold
+                            }
+                            // A model (Antigravity) can be chosen for the tray by itself.
+                            TrayDot {
+                                visible: card.multi
+                                size: 10
+                                color: card.modelData.color
+                                chosen: backend.prefs.trayProvider === card.modelData.id
+                                    && backend.prefs.trayLabel === row.modelData.label
+                                onPicked: backend.setTray(card.modelData.id, row.modelData.label)
                             }
                             Text { text: row.modelData.label; textFormat: Text.PlainText; color: popup.c.text; font.pointSize: 9; Layout.fillWidth: true; elide: Text.ElideRight }
                             Text {
@@ -936,5 +958,44 @@ Item {
             color: popup.c.muted
             font.pointSize: 7.5
         }
+    }
+
+    // A small round toggle: which card or model the tray ring shows.
+    component TrayDot: Item {
+        id: dot
+        property int size: 13
+        property color color
+        property bool chosen: false
+        property bool partial: false  // the card is chosen through one of its models
+        signal picked()
+        implicitWidth: size
+        implicitHeight: size
+        width: size
+        height: size
+        Rectangle {
+            anchors.fill: parent
+            radius: width / 2
+            color: dot.chosen && !dot.partial ? dot.color : "transparent"
+            border.width: 1.5
+            border.color: dot.chosen ? dot.color : area.containsMouse ? popup.c.text : popup.c.muted
+            Rectangle {  // a model of this card is in the tray: a dot inside the ring
+                visible: dot.partial
+                anchors.centerIn: parent
+                width: parent.width * 0.4
+                height: width
+                radius: width / 2
+                color: dot.color
+            }
+        }
+        // A MouseArea, not a TapHandler: it takes the click, so the row under it does not pin.
+        MouseArea {
+            id: area
+            anchors.fill: parent
+            anchors.margins: -4
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: dot.picked()
+        }
+        Tip { visible: area.containsMouse; delay: 400; text: popup.v ? popup.v.text.trayTip : "" }
     }
 }

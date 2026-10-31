@@ -55,6 +55,7 @@ TR = {
     # window / menus
     "QuotaRing": "QuotaRing",
     "Refresh now": "Şimdi yenile",
+    "Show in the tray": "Tray'de göster",
     "Settings": "Ayarlar",
     "5h": "5s",
     "W": "H",
