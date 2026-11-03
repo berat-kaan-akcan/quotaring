@@ -10,7 +10,9 @@
 #   curl;  AppImage: FUSE 2, the graphics libraries and fonts;
 #   Arch: a font if there is none;  KDE on Arch: layer-shell-qt;  GNOME: the AppIndicator extension, without which it has no tray.
 # QUOTARING_TRAY_ONLY=1 only sets up GNOME's tray extension; the app's own banner offers this.
-# Every download is checked against the release's SHA256SUMS.txt. The .deb and the AppImage update
+# Every QuotaRing download is checked against the release's SHA256SUMS.txt; the GNOME extension's
+# fallback comes over HTTPS from extensions.gnome.org, as GNOME's own Extensions app would get it,
+# where the zip differs per GNOME version and has no checksum to pin. The .deb and the AppImage update
 # themselves afterwards; run this command again to update the Arch package.
 # QUOTARING_NO_DEPS=1 skips installing system packages, QUOTARING_NO_START=1 skips starting the app.
 set -eu
@@ -124,9 +126,13 @@ tray_from_gnome_org() {
   VERSION=$(gnome-shell --version 2>/dev/null | sed -n 's/[^0-9]*\([0-9][0-9]*\).*/\1/p')
   [ -n "$VERSION" ] || return 1
   INFO="https://extensions.gnome.org/extension-info/?uuid=appindicatorsupport@rgcjonas.gmail.com&shell_version=$VERSION"
-  URL=$(curl -fsSL "$INFO" | sed -n 's/.*"download_url": *"\([^"]*\)".*/\1/p') || return 1
-  [ -n "$URL" ] || return 1
-  curl -fsSL --retry 3 --retry-all-errors -o "$TMP/tray-extension.zip" "https://extensions.gnome.org$URL" || return 1
+  URL=$(curl -fsSL --proto =https "$INFO" | sed -n 's/.*"download_url": *"\([^"]*\)".*/\1/p') || return 1
+  # Only this extension's own path: the value is glued onto the host, so it must not be able to change it.
+  case "$URL" in
+    "/download-extension/appindicatorsupport@rgcjonas.gmail.com.shell-extension.zip?version_tag="*) ;;
+    *) return 1 ;;
+  esac
+  curl -fsSL --proto =https --retry 3 --retry-all-errors -o "$TMP/tray-extension.zip" "https://extensions.gnome.org$URL" || return 1
   gnome-extensions install --force "$TMP/tray-extension.zip" 2>/dev/null
 }
 

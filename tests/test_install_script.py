@@ -23,7 +23,11 @@ def tray_step() -> str:
     return text[text.index("TRAY_EXTENSIONS="):text.index("# A running copy:")]
 
 
-def run(tmp_path: Path, enabled=(), known=(), packaged=(), settings="@as []", no_package=False):
+EXTENSION_PATH = f"/download-extension/{UPSTREAM}.shell-extension.zip?version_tag=75340"
+
+
+def run(tmp_path: Path, enabled=(), known=(), packaged=(), settings="@as []", no_package=False,
+        download_url=EXTENSION_PATH):
     """`known`: what the running shell lists; `packaged`: what installing the package would add;
     `no_package`: the distribution has no package of the extension."""
     tmp_path = tmp_path / "install"
@@ -32,7 +36,7 @@ def run(tmp_path: Path, enabled=(), known=(), packaged=(), settings="@as []", no
     log = tmp_path / "calls"
     (tmp_path / "settings").write_text(settings)
     for name, body in (("gnome-shell", 'echo "GNOME Shell 50.1"'),
-                       ("curl", f'echo "curl $*" >> {log}\necho \'{{"download_url": "/download/x.zip"}}\'')):
+                       ("curl", f'echo "curl $*" >> {log}\necho \'{{"download_url": "{download_url}"}}\'')):
         stub = bin_dir / name
         stub.write_text(f"#!/bin/sh\n{body}\n")
         stub.chmod(0o755)
@@ -101,8 +105,14 @@ def test_new_package_with_no_extensions_on_yet(tmp_path):
 def test_no_package_falls_back_to_extensions_gnome_org(tmp_path):
     _, calls, _ = run(tmp_path, no_package=True)
     assert "shell_version=50" in calls
-    assert "https://extensions.gnome.org/download/x.zip" in calls
+    assert f"https://extensions.gnome.org{EXTENSION_PATH}" in calls
     assert "gnome-extensions install --force" in calls
+
+
+def test_fallback_refuses_a_path_that_is_not_the_extensions_own(tmp_path):
+    _, calls, _ = run(tmp_path, no_package=True, download_url="@evil.example/x.zip")
+    assert "evil.example" not in calls
+    assert "gnome-extensions install --force" not in calls
 
 
 def test_other_desktops_are_left_alone(tmp_path):
