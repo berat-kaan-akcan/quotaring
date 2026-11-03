@@ -76,6 +76,46 @@ def test_all_states_render(app, settings, qml_errors, remaining, palette):
     assert qml_errors == []
 
 
+def test_tray_help_banner_copies_its_command_and_can_be_hidden(app, settings, qml_errors):
+    from PySide6.QtCore import QObject
+    from PySide6.QtGui import QGuiApplication
+    backend, popup = popup_for(settings)
+    popup.show()
+    bar = popup.window.findChild(QObject, "trayBar")
+    settle(app)
+    assert not bar.property("visible")
+    hidden = []
+    backend.trayHelpHidden.connect(lambda: hidden.append(True))
+    backend.set_tray_help({"text": "t", "command": "curl x | sh", "copy": "Copy", "copied": "Copied", "hide": "Hide"})
+    settle(app)
+    assert bar.property("visible")
+    backend.copyTrayCommand()
+    assert QGuiApplication.clipboard().text() == "curl x | sh"
+    backend.hideTrayHelp()
+    settle(app)
+    assert not bar.property("visible") and hidden == [True]
+    assert qml_errors == []
+
+
+@pytest.mark.parametrize("desktop,tray,missing", [
+    ("ubuntu:GNOME", False, True),
+    ("GNOME", True, False),  # the extension is working
+    ("KDE", False, False),  # not an extension's fault
+])
+def test_tray_extension_is_only_blamed_on_gnome(monkeypatch, desktop, tray, missing):
+    from quotaring import traysetup
+    monkeypatch.setenv("XDG_CURRENT_DESKTOP", desktop)
+    assert traysetup.extension_missing(tray) is missing
+
+
+@pytest.mark.parametrize("found,fetch", [({"curl", "wget"}, "curl -fsSL"), ({"wget"}, "wget -qO-"), (set(), "curl -fsSL")])
+def test_tray_command_uses_what_is_there(monkeypatch, found, fetch):
+    from quotaring import traysetup
+    monkeypatch.setattr(traysetup.shutil, "which", lambda n: n if n in found else None)
+    assert traysetup.command().startswith(fetch + " ")
+    assert traysetup.command().endswith("| QUOTARING_TRAY_ONLY=1 sh")
+
+
 def test_token_strip_per_provider(app, settings, qml_errors):
     from PySide6.QtCore import QObject
     codex = snap(State.OK, State.OK)
@@ -521,3 +561,17 @@ def test_tray_choice_is_saved_and_toggles(app, settings):
     assert (settings.tray_provider, settings.tray_label) == ("antigravity", "")
     backend.setTray("antigravity", "")  # again: released
     assert (settings.tray_provider, settings.tray_label) == ("", "")
+
+
+@pytest.mark.parametrize("desktop, system_dark, expected", [
+    ("ubuntu:GNOME", False, True),  # GNOME's top bar stays dark in the light theme too
+    ("GNOME", False, True),
+    ("ubuntu:GNOME", True, True),
+    ("KDE", False, False),  # Plasma's panel follows the theme
+    ("KDE", True, True),
+    ("", False, False),
+])
+def test_tray_ring_is_drawn_for_the_panel_it_sits_on(monkeypatch, desktop, system_dark, expected):
+    monkeypatch.setenv("XDG_CURRENT_DESKTOP", desktop)
+    monkeypatch.setattr(theme, "system_is_dark", lambda: system_dark)
+    assert theme.panel_is_dark() is expected

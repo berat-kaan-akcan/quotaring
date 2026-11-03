@@ -94,6 +94,8 @@ class Backend(QObject):
     testNotificationRequested = Signal()
     updateRequested = Signal()
     updateChanged = Signal()
+    trayHelpChanged = Signal()
+    trayHelpHidden = Signal()
     prefsSaved = Signal()
     settingsFormChanged = Signal()
     settingsSaved = Signal("QVariantMap")
@@ -108,6 +110,7 @@ class Backend(QObject):
         self._palette = palette
         self._form = {}
         self._update = {}
+        self._tray_help = {}
 
     def set_settings_form(self, form: dict):
         self._form = form
@@ -137,6 +140,24 @@ class Backend(QObject):
     @Slot()
     def installUpdate(self):
         self.updateRequested.emit()
+
+    def set_tray_help(self, help_: dict):
+        """The banner on setting up GNOME's tray extension: {} hides it."""
+        self._tray_help = help_
+        self.trayHelpChanged.emit()
+
+    @Property("QVariantMap", notify=trayHelpChanged)
+    def trayHelp(self):
+        return self._tray_help
+
+    @Slot()
+    def copyTrayCommand(self):
+        QGuiApplication.clipboard().setText(self._tray_help.get("command", ""))
+
+    @Slot()
+    def hideTrayHelp(self):
+        self.set_tray_help({})
+        self.trayHelpHidden.emit()
 
     def set_view(self, view: dict):
         self._view = view

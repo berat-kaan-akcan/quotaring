@@ -21,7 +21,7 @@ Version: $VERSION
 Section: utils
 Priority: optional
 Architecture: $DEBARCH
-Depends: libgl1, libegl1, libxkbcommon0, libfontconfig1, libdbus-1-3, libglib2.0-0
+Depends: libgl1, libegl1, libxkbcommon0, libfontconfig1, libdbus-1-3, libglib2.0-0, pkexec | policykit-1
 Maintainer: Berat Kaan Akcan <beratkaanakcan@gmail.com>
 Description: Desktop widget for Claude Code, Codex and Antigravity usage
  Shows local token activity and provider-reported account quota.

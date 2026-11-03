@@ -24,6 +24,7 @@ class Settings:
     pinned: dict = field(default_factory=dict)  # provider id -> limit label shown on its ring
     tray_provider: str = ""  # provider whose limit the tray ring shows ("" = the tightest of all)
     tray_label: str = ""  # that provider's model or limit shown in the tray ("" = its pinned or tightest)
+    tray_help_hidden: bool = False  # the banner on setting up GNOME's tray extension was dismissed
     card_order: list = field(default_factory=list)  # provider ids as arranged in the popup
     notify_enabled: bool = True  # master switch for quota notifications
     notify_levels: list = field(default_factory=lambda: [90])  # percent used that warns, once per window each

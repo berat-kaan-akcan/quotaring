@@ -13,7 +13,8 @@ from PySide6.QtGui import (QAction, QColor, QDesktopServices, QFont, QFontDataba
                            QPainterPath, QPen, QPixmap)
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-from . import __version__, alerts, autostart, paths, pricing, settings as settings_mod, traypin, updater, viewmodel
+from . import (__version__, alerts, autostart, paths, pricing, settings as settings_mod, traypin, traysetup, updater,
+               viewmodel)
 from .engine import Engine
 from .providers import ALL
 from .providers.base import shutdown_children
@@ -240,6 +241,7 @@ class Controller(QObject):
         self.backend.prefsSaved.connect(self.save_settings)
         self.backend.settingsSaved.connect(self.apply_settings)
         self.backend.prefsChanged.connect(self.update_view)  # the tray ring follows used/left
+        self.backend.trayHelpHidden.connect(self._hide_tray_help)
 
         self.tray = None
         if QSystemTrayIcon.isSystemTrayAvailable():
@@ -258,6 +260,11 @@ class Controller(QObject):
         self.popup = Popup(self.backend, docked=self.tray is not None)
         if self.tray is None:
             self.popup.window.closing.connect(lambda *_: self.quit())
+        if traysetup.extension_missing(self.tray is not None) and not self.settings.tray_help_hidden:
+            self.backend.set_tray_help({
+                "text": tr("No tray icon yet: GNOME needs the AppIndicator extension. "
+                           "Run this in a terminal, then log out and back in:"),
+                "command": traysetup.command(), "copy": tr("Copy"), "copied": tr("Copied"), "hide": tr("Hide")})
 
         hints = QApplication.styleHints()
         if hasattr(hints, "colorSchemeChanged"):
@@ -446,7 +453,7 @@ class Controller(QObject):
                               if ring["available"] else self.icon)
 
     def _panel_palette(self):
-        return theme.with_accent(theme.DARK if theme.system_is_dark() else theme.LIGHT, self.settings.accent)
+        return theme.with_accent(theme.DARK if theme.panel_is_dark() else theme.LIGHT, self.settings.accent)
 
     def _maybe_notify(self, snap):
         s = self.settings
@@ -524,6 +531,10 @@ class Controller(QObject):
         self._show_update()  # also rebuilds the tray menu
         self.backend.set_settings_form(settings_form.form(self.settings, autostart.supported(), self.tray is not None))
         self.update_view()
+
+    def _hide_tray_help(self):
+        self.settings.tray_help_hidden = True
+        self.save_settings()
 
     def save_settings(self):
         try:

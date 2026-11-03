@@ -197,6 +197,77 @@ Item {
                         }
                     }
 
+                    // GNOME without its tray extension: the one command that sets it up.
+                    Rectangle {
+                        id: trayBar
+                        objectName: "trayBar"
+                        readonly property var h: backend.trayHelp
+                        property bool copied: false
+                        visible: popup.page === "limits" && !!h.command
+                        Layout.fillWidth: true
+                        implicitHeight: trayColumn.implicitHeight + 20
+                        radius: 12
+                        color: popup.c.card
+                        border.color: popup.c.accent
+                        ColumnLayout {
+                            id: trayColumn
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.margins: 10
+                            anchors.leftMargin: 12
+                            spacing: 8
+                            Text {
+                                Layout.fillWidth: true
+                                text: trayBar.h.text || ""
+                                color: popup.c.text
+                                font.pointSize: 9
+                                wrapMode: Text.Wrap
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: trayBar.h.command || ""
+                                color: popup.c.muted
+                                font.pointSize: 8
+                                font.family: "monospace"
+                                wrapMode: Text.WrapAnywhere
+                            }
+                            RowLayout {
+                                Layout.alignment: Qt.AlignRight
+                                spacing: 8
+                                Repeater {
+                                    model: 2
+                                    delegate: Rectangle {
+                                        id: trayButton
+                                        required property int index
+                                        readonly property string label: index === 1 ? (trayBar.h.hide || "")
+                                            : trayBar.copied ? (trayBar.h.copied || "") : (trayBar.h.copy || "")
+                                        function act() {
+                                            if (index === 1) backend.hideTrayHelp()
+                                            else { backend.copyTrayCommand(); trayBar.copied = true }
+                                        }
+                                        implicitWidth: trayButtonText.implicitWidth + 24
+                                        implicitHeight: 28
+                                        radius: 8
+                                        color: trayMouse.containsMouse ? popup.c.track : "transparent"
+                                        border.color: popup.c.border
+                                        Text { id: trayButtonText; anchors.centerIn: parent; text: trayButton.label; color: popup.c.text; font.pointSize: 9 }
+                                        MouseArea {
+                                            id: trayMouse
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: trayButton.act()
+                                        }
+                                        Accessible.role: Accessible.Button
+                                        Accessible.name: label
+                                        Accessible.onPressAction: act()
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     Text {
                         visible: popup.page === "limits" && (!popup.v || popup.v.limits.length === 0)
                         Layout.fillWidth: true

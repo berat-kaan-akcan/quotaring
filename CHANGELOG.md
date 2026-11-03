@@ -6,6 +6,35 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-03
+
+### Fixed
+- GNOME: the tray ring's number was dark on the dark top bar and almost unreadable when the system
+  used the light theme. It is now always drawn for a dark panel there.
+- Install command on Ubuntu: it recognises Ubuntu's own AppIndicator extension, so it no longer
+  asks for `sudo` to install what is already there or tells you to log out for nothing.
+- Install command on GNOME: an extension it has just installed is now really enabled, for the next
+  login; before, enabling it failed without a word and the icon stayed away after logging back in.
+- Install command: it now adds what it used to leave to you. curl if it is missing (and the README
+  gives a `wget` line for that case), the graphics libraries and fonts the AppImage needs, which
+  made it crash on a minimal Fedora or openSUSE, and a font on Arch. It refreshes apt's package
+  list first, retries failed downloads, falls back to extensions.gnome.org for the GNOME tray
+  extension where there is no package (openSUSE), and tells you if it finds none of the tools
+  QuotaRing reads limits from.
+- `.deb`: it now depends on `pkexec`, which its *Update* needs, so installing it from App Center or
+  by hand gets it too.
+
+### Added
+- GNOME without the tray extension: the Limits page says so and gives the one command that sets it
+  up, with a button to copy it. This reaches people who installed from App Center or by hand, who
+  never ran the install command. It can be dismissed for good.
+
+### Documentation
+- On GNOME a single click on the icon opens the menu and a double-click opens the popup; installing
+  the `.deb` does not start the app.
+- README: install section rewritten, with the commands each system needs, what to install for each
+  provider, and the openSUSE case (no package for the GNOME tray extension).
+
 ## [0.3.0] - 2026-10-31
 
 ### Added
@@ -72,6 +101,7 @@ First public release.
   installer and zip. The Linux builds use the system's `libstdc++`: the build machine's older
   copy kept newer Mesa drivers (Arch, CachyOS) from loading, so the app could not start.
 
-[Unreleased]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/berat-kaan-akcan/quotaring/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/berat-kaan-akcan/quotaring/releases/tag/v0.2.0

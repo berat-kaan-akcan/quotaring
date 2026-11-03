@@ -183,6 +183,11 @@ TR = {
     "Update to {v}": "{v} sürümüne güncelle",
     "Update": "Güncelle",
     "Download page": "İndirme sayfası",
+    "No tray icon yet: GNOME needs the AppIndicator extension. Run this in a terminal, then log out and back in:":
+        "Tepsi simgesi henüz yok: GNOME'un AppIndicator eklentisi gerekiyor. Bunu terminalde çalıştırın, sonra oturumu kapatıp yeniden açın:",
+    "Copy": "Kopyala",
+    "Copied": "Kopyalandı",
+    "Hide": "Gizle",
     "Weekly, for the cost estimate on the Tokens page": "Haftada bir, Tokenlar sayfasındaki maliyet tahmini için",
     "Advanced": "Gelişmiş",
     "Track": "İzle",

@@ -42,7 +42,7 @@
   </tr>
 </table>
 
-**⬇ Install:** [**Windows**](#install-on-windows) · [**Linux**](#install-on-linux) · [macOS (experimental)](#macos-experimental) · [all downloads](https://github.com/berat-kaan-akcan/quotaring/releases/latest)
+**⬇ Install:** [**Windows**](#install-on-windows) · [**Linux**](#install-on-linux) · [macOS (experimental)](#macos-experimental) · [what else you need](#what-you-need-besides-quotaring) · [all downloads](https://github.com/berat-kaan-akcan/quotaring/releases/latest)
 
 [What is supported](#what-is-supported) · [Privacy](#privacy-and-security) · [Build from source](#build-from-source)
 
@@ -71,24 +71,24 @@
 - ⬆️ **Updates itself.** A new release shows up in the popup; *Update* installs it and restarts, checked against the release's SHA-256 sums.
 - 🖥️ **Linux and Windows.** GNOME and KDE, X11 and Wayland (layer-shell popup on Plasma); runs from source on macOS (experimental, untested); English and Turkish.
 
-## Download
+## Install
 
-Pick your system. The one-line command is the quickest way: it downloads, checks the checksum,
-installs and starts QuotaRing. The direct downloads below it are for installing by hand.
-Either way, QuotaRing [updates itself](#using-it) afterwards.
+Pick your system. The one-line command is the easiest way: it downloads QuotaRing, checks its
+checksum, installs what is missing and starts it. Either way, QuotaRing
+[updates itself](#using-it) afterwards. To read limits it also needs
+[the tools you want to track](#what-you-need-besides-quotaring).
 
 ### Install on Windows
 
-Windows 10/11. Paste in PowerShell:
+Windows 10/11. Paste in PowerShell (no admin rights needed; it installs for your user and adds a
+Start menu entry):
 
 ```powershell
 irm https://raw.githubusercontent.com/berat-kaan-akcan/quotaring/main/install.ps1 | iex
 ```
 
-It installs for your user only, with no admin rights, and adds a Start menu entry.
-
-**Or download directly:**
-[quotaring-setup.exe](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-setup.exe) (installer, open it) ·
+**Or download:**
+[quotaring-setup.exe](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-setup.exe) (installer) ·
 [quotaring-windows-x64.zip](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-windows-x64.zip) (portable, extract and run `quotaring.exe`)
 
 > [!NOTE]
@@ -103,45 +103,103 @@ x86_64. Paste in a terminal:
 curl -fsSL https://raw.githubusercontent.com/berat-kaan-akcan/quotaring/main/install.sh | sh
 ```
 
-When it finishes, the icon is in the system tray: click it to open the popup. Before you paste,
-here is exactly what it installs (`sudo` asks for your password only when something is missing):
+If it says `curl: command not found`, as a new Ubuntu may, use this instead; it adds curl itself:
 
-| System | QuotaRing goes to | System packages added if missing |
+```sh
+wget -qO- https://raw.githubusercontent.com/berat-kaan-akcan/quotaring/main/install.sh | sh
+```
+
+You do not need to install Python or Qt: QuotaRing brings its own, and on Arch pacman adds them. The
+command adds anything else that is missing, asking for your `sudo` password if it has to. Before you
+paste, here is exactly what it does:
+
+| System | QuotaRing goes to | System packages it adds if missing |
 |---|---|---|
 | Debian / Ubuntu | `/opt/quotaring` (a `.deb`, through apt) | the `.deb`'s dependencies |
-| Arch / CachyOS / Manjaro | `/usr/share/quotaring` (a pacman package) | `python`, `pyside6`; on KDE `layer-shell-qt` |
-| Fedora | `~/.local/bin/quotaring.AppImage` | `fuse-libs` |
-| openSUSE | `~/.local/bin/quotaring.AppImage` | `libfuse2` |
+| Arch / CachyOS / Manjaro | `/usr/share/quotaring` (a pacman package) | `python`, `pyside6`, `ttf-dejavu` if there is no font; on KDE `layer-shell-qt` |
+| Fedora | `~/.local/bin/quotaring.AppImage` | `fuse-libs`, `mesa-libGL`, `mesa-libEGL`, `libwayland-client`, `fontconfig`, `dejavu-sans-fonts` |
+| openSUSE | `~/.local/bin/quotaring.AppImage` | `libfuse2`, `Mesa-libGL1`, `Mesa-libEGL1`, `libwayland-client0`, `fontconfig`, `dejavu-fonts` |
 
-It also adds an app-menu entry and the `quotaring` command. FUSE 2 is what an AppImage needs to run.
-The Arch package runs on the system's Qt, so on KDE Plasma Wayland the popup opens anchored by the
-panel; an earlier AppImage install is removed. Run the same command again to update it.
+On GNOME it also sets up the [tray extension](#gnome-tray-extension). It adds an app-menu entry and
+the `quotaring` command, and replaces an earlier AppImage install. It does not install
+[Claude Code, Codex or Antigravity](#what-you-need-besides-quotaring), which need your own sign-in;
+if it finds none of them it prints how. Run the same command again to update the Arch package.
 
-**GNOME:** GNOME has no tray of its own, so the command also installs and enables the
-*AppIndicator* extension (`gnome-shell-extension-appindicator`); log out and back in once for the
-icon to appear. KDE Plasma, Cinnamon and XFCE need nothing extra.
+#### Install by hand
 
-**Or download directly:**
+Each of these does the same job as the command above; run them in the folder you download to.
 
-| File | Then |
+**Ubuntu 22.04+ / Debian 12+**
+
+```sh
+curl -fLO https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring_amd64.deb
+sudo apt install ./quotaring_amd64.deb
+```
+
+**Arch / CachyOS / Manjaro**
+
+```sh
+curl -fLO https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-any.pkg.tar.zst
+sudo pacman -U quotaring-any.pkg.tar.zst
+sudo pacman -S --needed layer-shell-qt   # KDE Plasma only: the popup opens anchored by the panel
+```
+
+**Any distribution: AppImage.** Install FUSE 2 first, which AppImages need to run. A desktop system
+has the graphics libraries it also uses; on a minimal one see the table above:
+
+| System | Command |
 |---|---|
-| [quotaring_amd64.deb](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring_amd64.deb) (Ubuntu 22.04+ / Debian 12+) | `sudo apt install ./quotaring_amd64.deb` |
-| [quotaring-x86_64.AppImage](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-x86_64.AppImage) (any distribution) | install FUSE 2 (table above), `chmod +x quotaring-x86_64.AppImage`, run it |
-| [quotaring-any.pkg.tar.zst](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-any.pkg.tar.zst) (Arch / CachyOS / Manjaro) | `sudo pacman -U quotaring-any.pkg.tar.zst` |
-| [quotaring-linux-x86_64.tar.gz](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-linux-x86_64.tar.gz) (portable) | extract, run `quotaring/quotaring` |
+| Ubuntu 24.04+ | `sudo apt install libfuse2t64` |
+| Ubuntu 22.04, Debian 12 | `sudo apt install libfuse2` |
+| Fedora | `sudo dnf install fuse-libs` |
+| Arch | `sudo pacman -S fuse2` |
+| openSUSE | `sudo zypper install libfuse2` |
+
+```sh
+curl -fLO https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-x86_64.AppImage
+chmod +x quotaring-x86_64.AppImage
+./quotaring-x86_64.AppImage
+```
+
+**Any distribution: portable.**
+[quotaring-linux-x86_64.tar.gz](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/quotaring-linux-x86_64.tar.gz):
+extract it and run `quotaring/quotaring`.
+
+> [!NOTE]
+> **Installing with Ubuntu's App Center.** Opening the `.deb` there shows *Potentially unsafe* and
+> *Unknown publisher*, as for any package from outside its store; the terminal commands above show
+> no such warning. App Center does not start the app afterwards: open QuotaRing from the app menu.
+> If GNOME's tray extension is missing, the app says so and gives you the command to run.
+
+#### GNOME tray extension
+
+GNOME has no tray of its own and needs the *AppIndicator* extension to show the icon. KDE Plasma,
+Cinnamon and XFCE need nothing extra. The install command handles this for you. To do it yourself:
+
+| System | What to do |
+|---|---|
+| Ubuntu | Nothing: it ships with the extension turned on |
+| Debian | `sudo apt install gnome-shell-extension-appindicator` |
+| Fedora | `sudo dnf install gnome-shell-extension-appindicator` |
+| Arch | `sudo pacman -S gnome-shell-extension-appindicator` |
+| openSUSE | No package: install it from [extensions.gnome.org](https://extensions.gnome.org/extension/615/appindicator-support/) |
+
+After installing it, log out and back in, then turn it on with the line for your system:
+
+```sh
+gnome-extensions enable ubuntu-appindicators@ubuntu.com          # Debian
+gnome-extensions enable appindicatorsupport@rgcjonas.gmail.com   # Fedora, Arch, extensions.gnome.org
+```
 
 <details>
-<summary>Installer options</summary>
+<summary>Options for the install command</summary>
 
 Set them before `sh`, for example `curl -fsSL …/install.sh | QUOTARING_APPIMAGE=1 sh`:
 
 - `QUOTARING_APPIMAGE=1`: the AppImage on Debian / Ubuntu or Arch too, instead of their package.
-- `QUOTARING_NO_DEPS=1`: install no system packages; add them yourself first:
-  `sudo pacman -S --needed pyside6 layer-shell-qt` (Arch), `sudo dnf install fuse-libs` (Fedora),
-  `sudo zypper install libfuse2` (openSUSE), `sudo apt install libfuse2t64` (Ubuntu 24.04+; 22.04: `libfuse2`),
-  and on GNOME `gnome-shell-extension-appindicator` from the same package manager, then
-  `gnome-extensions enable appindicatorsupport@rgcjonas.gmail.com`.
+- `QUOTARING_NO_DEPS=1`: install no system packages; add them yourself first (see above).
 - `QUOTARING_NO_START=1`: install without starting it.
+- `QUOTARING_TRAY_ONLY=1`: set up GNOME's tray extension and nothing else.
 
 </details>
 
@@ -159,27 +217,38 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 Start it again later with `cd quotaring && .venv/bin/python -m quotaring`. Known gaps:
 
 - The icon goes in the menu bar. A left click may open its menu instead of the popup; if it does,
-  choose *Show* there.
+  choose *Show / hide* there.
 - The Dock shows a Python icon while it runs, as there is no `.app` bundle.
 - No *Start at login* and no self-update: update with `git pull` in the `quotaring` folder.
 
 If you try it, an [issue](https://github.com/berat-kaan-akcan/quotaring/issues) saying what worked
 and what did not is very welcome.
 
-<details>
-<summary>Uninstall</summary>
+### What you need besides QuotaRing
+
+QuotaRing reads limits through the tools you already use, so install and sign in to the ones you
+want to track. You do not need all of them; a tool that is not there is simply left out or shows
+*No limit data*.
+
+| Tool | Install | Sign in |
+|---|---|---|
+| **Claude Code** | `curl -fsSL https://claude.ai/install.sh \| bash` (limits need a subscription, not an API key) | run `claude` once |
+| **Codex** | `npm install -g @openai/codex` (needs Node.js) | `codex login` |
+| **Antigravity** | Google's Antigravity app | sign in inside the app |
+
+Until one of them reports a limit, the tray icon is the QuotaRing logo instead of a ring.
+
+### Uninstall
 
 - Windows: *Settings → Apps → QuotaRing*.
-- macOS: delete the `quotaring` folder, and `~/Library/Application Support/quotaring` and `~/Library/Caches/quotaring` for its settings and cache.
 - Debian / Ubuntu: `sudo apt remove quotaring`.
 - Arch: `sudo pacman -R quotaring`.
 - AppImage: `rm ~/.local/bin/quotaring ~/.local/bin/quotaring.AppImage ~/.local/share/applications/quotaring.desktop`.
+- macOS: delete the `quotaring` folder, and `~/Library/Application Support/quotaring` and `~/Library/Caches/quotaring` for its settings and cache.
 
-</details>
-
-Checksums: [SHA256SUMS.txt](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/SHA256SUMS.txt).
-Older versions: [Releases page](https://github.com/berat-kaan-akcan/quotaring/releases).
-To build it yourself, see [Build from source](#build-from-source).
+Checksums: [SHA256SUMS.txt](https://github.com/berat-kaan-akcan/quotaring/releases/latest/download/SHA256SUMS.txt) ·
+older versions: [Releases](https://github.com/berat-kaan-akcan/quotaring/releases) ·
+build it yourself: [Build from source](#build-from-source).
 
 ## Using it
 
@@ -187,6 +256,9 @@ To build it yourself, see [Build from source](#build-from-source).
 your choice in Settings). Hover it for each provider's limits; click it to open the popup above the
 panel; right-click for Show / hide, Refresh, Settings, Notifications (on/off, mute for 1 hour or
 until tomorrow) and Quit. Click anywhere else or press Esc to close the popup.
+
+**On GNOME** the AppIndicator extension decides what a click does: a single click opens that menu,
+so **double-click the icon, or choose *Show / hide*, to open the popup**.
 
 **Updates.** When a newer release is out, a banner at the top of the Limits page and an item in
 the tray menu offer it. *Update* downloads the file for your kind of install, checks it against the
@@ -319,10 +391,10 @@ time; it is rebuilt.
   after the screens change, it opens in the panel corner. PySide6 from
   pip only loads `layer-shell-qt` when the system Qt has the same version; otherwise, and on GNOME,
   the app runs through XWayland and places the popup itself. `--xwayland` forces that.
-- **GNOME tray:** GNOME has no tray by default. Install the *AppIndicator and KStatusNotifierItem
-  Support* extension; the Linux install command adds and enables it ([details](#install-on-linux)). Without a tray the popup is an ordinary window that stays open; closing it quits.
-- A harmless `qt.qpa.services: Failed to register with host portal` warning appears when running
-  from source without an installed `.desktop` file.
+- **GNOME tray:** GNOME has no tray by default; see [GNOME tray extension](#gnome-tray-extension).
+  Without a tray the popup is an ordinary window that stays open; closing it quits.
+- A harmless `qt.qpa.services: Failed to register with host portal` warning can appear when it is
+  started from a terminal.
 - PySide6 6.12 aborts at exit on Python < 3.12 (a reference-counting bug in its bindings);
   `requirements.txt` and `pyproject.toml` therefore select `PySide6-Essentials < 6.12` on those Python versions.
 - Antigravity's database format is internal and may change; unreadable data is skipped and the
@@ -338,8 +410,11 @@ time; it is rebuilt.
 | Card says "No plan limits for this account" | API-key account (no subscription limits) or a CLI version without the query. |
 | Antigravity shows one value per model, dimmed with "updated … ago" | Antigravity isn't running: the IDE's cached status is shown. Open Antigravity to get live limits. |
 | Numbers look old or dimmed with "updated … ago" | Press ⟳. Dimmed values mean the last refresh failed and the previous reading is kept visible. |
+| No icon in the top bar on GNOME | The Limits page shows a command that sets up the [tray extension](#gnome-tray-extension): copy it, run it in a terminal, then log out and back in. |
+| The icon opens a menu, not the popup (GNOME) | That is how GNOME's extension treats a single click: double-click the icon, or choose *Show / hide*. |
+| The popup opens, then disappears | It closes when you click elsewhere. Open it again from the icon. |
 | Want to inspect raw output | `python -m quotaring --print` |
-| "already running" but no window | It is in the tray: click the icon. A lock left by a crashed run is taken over automatically. |
+| "already running" but no window | It is in the tray: click the icon (on GNOME, double-click it). A lock left by a crashed run is taken over automatically. |
 
 ## Build from source
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, replace
 
 from PySide6.QtCore import Qt
@@ -59,6 +60,13 @@ def system_is_dark() -> bool:
         if s == Qt.ColorScheme.Light:
             return False
     return QGuiApplication.palette().window().color().lightness() < 128
+
+
+def panel_is_dark() -> bool:
+    """Whether the panel holding the tray icon is dark, which is what the icon is drawn against."""
+    if "GNOME" in os.environ.get("XDG_CURRENT_DESKTOP", ""):
+        return True  # GNOME's top bar stays dark in the light theme too
+    return system_is_dark()
 
 
 def resolve(theme: str, accent: str = DEFAULT_ACCENT) -> Palette:

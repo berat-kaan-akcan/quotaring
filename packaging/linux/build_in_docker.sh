@@ -24,7 +24,7 @@ docker run --rm -v "$PWD":/src:ro -v "$PWD/packaging/out":/out \
   /tmp/venv/bin/pip install -q --upgrade pip
   /tmp/venv/bin/pip install -q -r /src/requirements-dev.txt
   fi
-  mkdir /tmp/w && cp -r /src/quotaring /src/packaging /src/tests /src/pytest.ini /tmp/w/
+  mkdir /tmp/w && cp -r /src/quotaring /src/packaging /src/tests /src/pytest.ini /src/install.sh /tmp/w/
   rm -rf /tmp/w/packaging/out
   cd /tmp/w
   python3 --version
