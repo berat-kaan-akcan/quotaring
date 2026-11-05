@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- Arch package: *Update* now installs the new release itself, with `pacman -U` through `pkexec`
+  (it asks for your password), instead of only opening the release page. The package now depends
+  on `polkit` for this.
+
 ## [0.3.1] - 2026-11-03
 
 ### Fixed

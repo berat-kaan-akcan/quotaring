@@ -123,7 +123,7 @@ paste, here is exactly what it does:
 On GNOME it also sets up the [tray extension](#gnome-tray-extension). It adds an app-menu entry and
 the `quotaring` command, and replaces an earlier AppImage install. It does not install
 [Claude Code, Codex or Antigravity](#what-you-need-besides-quotaring), which need your own sign-in;
-if it finds none of them it prints how. Run the same command again to update the Arch package.
+if it finds none of them it prints how. The Arch package updates itself from 0.3.2 on; for older copies, run the same command again.
 
 #### Install by hand
 
@@ -270,7 +270,8 @@ release's `SHA256SUMS.txt`, installs it and starts the new version:
 | Windows zip, Linux tarball | swaps the folder for the new one (the old one is put back if that fails) |
 | AppImage | replaces the AppImage file |
 | `.deb` | installs the new package with `apt` through `pkexec` (asks for your password) |
-| Arch package, source, non-x86_64 | opens the release page; run the install command again (Arch) or `git pull` |
+| Arch package | installs the new package with `pacman -U` through `pkexec` (asks for your password) |
+| source, other CPUs | opens the release page; `git pull` |
 
 If an update fails, the banner says so and its button opens the release page instead.
 

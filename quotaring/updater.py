@@ -7,7 +7,8 @@ installed depends on how this copy was installed:
   appimage   the AppImage file is replaced (Linux keeps the running one open).
   deb        the new .deb goes through apt (or dpkg) under pkexec, which asks for the password.
   tarball    portable folder, swapped while running (Linux allows it).
-  manual     the Arch package, a source checkout, other CPUs: only the release page is offered.
+  arch       the pacman package goes through `pacman -U` under pkexec, which asks for the password.
+  manual     a source checkout, other CPUs: only the release page is offered.
 Every download is checked against the release's SHA256SUMS.txt before it is used.
 """
 
@@ -38,7 +39,8 @@ API_URL = "https://api.github.com/repos/berat-kaan-akcan/quotaring/releases/late
 RELEASES_URL = "https://github.com/berat-kaan-akcan/quotaring/releases/latest"
 CHECK_AFTER = 12 * 3600
 SUMS = "SHA256SUMS.txt"
-AUTO_KINDS = ("win-setup", "win-zip", "appimage", "deb", "tarball")
+AUTO_KINDS = ("win-setup", "win-zip", "appimage", "deb", "tarball", "arch")
+ARCH_DIR = Path("/usr/share/quotaring")  # where the Arch package puts the `quotaring` module
 
 
 class UpdateError(Exception):
@@ -126,13 +128,21 @@ def check(current: str, now: float | None = None, force: bool = False, fetch=_fe
 # -- how this copy was installed ---------------------------------------------
 
 def install_kind(frozen: bool | None = None, plat: str | None = None, exe: str | None = None,
-                 environ=None, machine: str | None = None) -> str:
+                 environ=None, machine: str | None = None, module: str | None = None,
+                 pacman: str | None = None) -> str:
     frozen = getattr(sys, "frozen", False) if frozen is None else frozen
     plat = sys.platform if plat is None else plat
     exe = sys.executable if exe is None else exe
     environ = os.environ if environ is None else environ
     machine = (platform.machine() if machine is None else machine).lower()
-    if not frozen or machine not in ("x86_64", "amd64"):
+    if not frozen:
+        # The Arch package runs the system Python on /usr/share/quotaring/quotaring; its package is
+        # "any", so the CPU does not matter. Anything else unfrozen is a source checkout.
+        module = __file__ if module is None else module
+        pacman = shutil.which("pacman") if pacman is None else pacman
+        in_pkg = ARCH_DIR.resolve() in Path(module).resolve().parents
+        return "arch" if plat.startswith("linux") and in_pkg and pacman else "manual"
+    if machine not in ("x86_64", "amd64"):
         return "manual"
     if plat == "win32":
         return "win-setup" if Path(exe).with_name("unins000.exe").exists() else "win-zip"
@@ -151,6 +161,7 @@ def pick_asset(release: Release, kind: str) -> str | None:
         "appimage": lambda n: n.endswith("-x86_64.AppImage"),
         "deb": lambda n: n.endswith("_amd64.deb"),
         "tarball": lambda n: "-linux-x86_64" in n and n.endswith(".tar.gz"),
+        "arch": lambda n: n.endswith("-any.pkg.tar.zst"),
     }
     test = tests.get(kind)
     names = sorted(n for n in release.assets if test and test(n))
@@ -318,6 +329,14 @@ def install(release: Release, kind: str, workdir: Path | None = None) -> None:
             raise UpdateError("pkexec is missing")
         cmd = ["apt-get", "install", "-y", str(file)] if shutil.which("apt-get") else ["dpkg", "-i", str(file)]
         if subprocess.run(["pkexec", *cmd], stdin=subprocess.DEVNULL).returncode != 0:
+            raise UpdateError("the package was not installed")
+        _relaunch_after_exit("/usr/bin/quotaring")
+    elif kind == "arch":
+        if not shutil.which("pkexec"):
+            raise UpdateError("pkexec is missing")
+        # --needed is left out on purpose: the same version must reinstall when asked to.
+        if subprocess.run(["pkexec", "pacman", "-U", "--noconfirm", str(file)],
+                          stdin=subprocess.DEVNULL).returncode != 0:
             raise UpdateError("the package was not installed")
         _relaunch_after_exit("/usr/bin/quotaring")
     else:  # tarball

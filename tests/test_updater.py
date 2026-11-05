@@ -83,7 +83,11 @@ def test_install_kind(tmp_path):
     assert kind(environ={"APPIMAGE": "/home/u/q.AppImage"}) == "appimage"
     assert kind(exe="/opt/quotaring/quotaring") == "deb"
     assert kind() == "tarball"
-    assert kind(frozen=False) == "manual"  # source checkout or the Arch package
+    pkg = "/usr/share/quotaring/quotaring/updater.py"
+    assert kind(frozen=False, module=pkg, pacman="/usr/bin/pacman") == "arch"
+    assert kind(frozen=False, module=pkg, pacman="/usr/bin/pacman", machine="aarch64") == "arch"  # "any" package
+    assert kind(frozen=False, module=pkg, pacman="") == "manual"  # copied files, no pacman
+    assert kind(frozen=False, module="/home/u/quotaring/quotaring/updater.py", pacman="/usr/bin/pacman") == "manual"
     assert kind(machine="aarch64") == "manual"
     assert kind(plat="darwin") == "manual"
 
@@ -104,9 +108,10 @@ def test_pick_asset():
 def test_pick_asset_with_stable_names():
     # From 0.2.2 on, releases name files without the version (README links to latest/download).
     names = ["quotaring-setup.exe", "quotaring-windows-x64.zip", "quotaring-x86_64.AppImage",
-             "quotaring_amd64.deb", "quotaring-linux-x86_64.tar.gz", "SHA256SUMS.txt"]
+             "quotaring_amd64.deb", "quotaring-linux-x86_64.tar.gz", "quotaring-any.pkg.tar.zst",
+             "SHA256SUMS.txt"]
     r = Release("0.2.2", assets={n: "https://dl/" + n for n in names})
-    assert [updater.pick_asset(r, k) for k in updater.AUTO_KINDS] == names[:5]
+    assert [updater.pick_asset(r, k) for k in updater.AUTO_KINDS] == names[:6]
 
 
 def test_parse_sums():
@@ -203,3 +208,24 @@ def test_windows_swap_script_quotes_paths():
 def test_manual_install_is_refused():
     with pytest.raises(UpdateError):
         updater.install(Release("0.2.0"), "manual")
+
+
+def test_arch_update_runs_pacman_through_pkexec(tmp_path, monkeypatch):
+    pkg = tmp_path / "quotaring-any.pkg.tar.zst"
+    pkg.write_bytes(b"pkg")
+    monkeypatch.setattr(updater, "download", lambda *a, **k: pkg)
+    monkeypatch.setattr(updater.shutil, "which", lambda n: "/usr/bin/" + n)
+    ran, relaunched = [], []
+    monkeypatch.setattr(updater, "_relaunch_after_exit", relaunched.append)
+
+    class Done:
+        def __init__(self, code):
+            self.returncode = code
+    monkeypatch.setattr(updater.subprocess, "run", lambda cmd, **k: ran.append(cmd) or Done(0))
+    updater.install(Release("0.3.2"), "arch")
+    assert ran == [["pkexec", "pacman", "-U", "--noconfirm", str(pkg)]]
+    assert relaunched == ["/usr/bin/quotaring"]
+
+    monkeypatch.setattr(updater.subprocess, "run", lambda cmd, **k: Done(126))  # password dialog dismissed
+    with pytest.raises(UpdateError):
+        updater.install(Release("0.3.2"), "arch")

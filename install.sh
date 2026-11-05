@@ -12,8 +12,8 @@
 # QUOTARING_TRAY_ONLY=1 only sets up GNOME's tray extension; the app's own banner offers this.
 # Every QuotaRing download is checked against the release's SHA256SUMS.txt; the GNOME extension's
 # fallback comes over HTTPS from extensions.gnome.org, as GNOME's own Extensions app would get it,
-# where the zip differs per GNOME version and has no checksum to pin. The .deb and the AppImage update
-# themselves afterwards; run this command again to update the Arch package.
+# where the zip differs per GNOME version and has no checksum to pin. The .deb, the AppImage and the Arch
+# package (from 0.3.2) update themselves afterwards.
 # QUOTARING_NO_DEPS=1 skips installing system packages, QUOTARING_NO_START=1 skips starting the app.
 set -eu
 BASE=https://github.com/berat-kaan-akcan/quotaring/releases/latest/download
